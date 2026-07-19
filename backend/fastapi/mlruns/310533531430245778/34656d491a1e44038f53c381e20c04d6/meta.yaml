@@ -1,0 +1,15 @@
+artifact_uri: file:///C:/Users/Tanish/p4/backend/fastapi/mlruns/310533531430245778/34656d491a1e44038f53c381e20c04d6/artifacts
+end_time: 1784462517648
+entry_point_name: ''
+experiment_id: '310533531430245778'
+lifecycle_stage: active
+run_id: 34656d491a1e44038f53c381e20c04d6
+run_name: frf_baseline
+run_uuid: 34656d491a1e44038f53c381e20c04d6
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1784462517556
+status: 3
+tags: []
+user_id: Tanish

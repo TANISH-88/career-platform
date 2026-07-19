@@ -31,3 +31,15 @@ SQLAlchemy==2.0.31
 python-dotenv==1.0.1
 click==8.1.7
 six==1.16.0
+
+# ML / Data Science
+scikit-learn==1.5.1
+joblib==1.4.2
+numpy==1.26.4
+pandas==2.2.2
+
+# MLflow experiment tracking
+mlflow==2.15.1
+
+# Testing
+pytest==8.3.2
