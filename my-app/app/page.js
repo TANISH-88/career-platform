@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Features from "./components/Features";
+import ResumeUpload from "./components/ResumeUpload";
 
 export default function Home() {
   const [values, setValues] = useState({});
@@ -47,6 +48,7 @@ export default function Home() {
   return (
     <div>
       <Features values={values} setValues={setValues} />
+      <ResumeUpload />
 
       <div className="text-center mt-10">
         <button

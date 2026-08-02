@@ -11,7 +11,7 @@ const corr_features = [
 
 const other_features = [
   { name: 'Openness', key: 'openness', detail: 'Creativity and open-mindedness.' },
-  { name: 'Conscientousness', key: 'conscientousness', detail: 'Discipline and responsibility.' },
+  { name: 'Conscientiousness', key: 'conscientiousness', detail: 'Discipline and responsibility.' },
   { name: 'Extraversion', key: 'extraversion', detail: 'Social energy and interaction.' },
   { name: 'Agreeableness', key: 'agreeableness', detail: 'Cooperation and empathy.' },
   { name: 'Emotional Range', key: 'emotional_range', detail: 'Stability during stress.' },

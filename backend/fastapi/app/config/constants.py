@@ -36,3 +36,7 @@ ROLE_MAPPING: dict[int, str] = {
     14: 'Helpdesk Engineer',
     15: 'Graphics Designer',
 }
+
+# --- Phase 2 additions ---
+GEMINI_MODEL: str = "gemini-2.5-flash-lite"
+MAX_RESUME_BYTES: int = 5 * 1024 * 1024   # 5 MB

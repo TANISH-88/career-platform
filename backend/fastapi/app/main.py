@@ -5,9 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.routes.predict import router
+from app.routes.resume import resume_router
 from app.services.feature_mapper import FeatureMapper
 from app.services.model_registry import ModelRegistry
 from app.services.predictor import PredictorService
+from app.services.resume_parser import ResumeParser
 
 
 @asynccontextmanager
@@ -15,6 +17,7 @@ async def lifespan(app: FastAPI):
     # Startup: load models and register MLflow baseline
     app.state.feature_mapper = FeatureMapper()
     app.state.predictor = PredictorService()
+    app.state.resume_parser = ResumeParser()
     ModelRegistry().register_baseline_if_needed()
     yield
     # Shutdown: nothing to clean up in Phase 1
@@ -40,3 +43,4 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 app.include_router(router)
+app.include_router(resume_router)

@@ -1,9 +1,12 @@
+import os
 import pathlib
 import pandas as pd
 import pytest
 
 from app.services.feature_mapper import FeatureMapper
 from app.services.predictor import PredictorService
+
+os.environ.setdefault("GEMINI_API_KEY", "test-gemini-api-key")
 
 TESTS_DIR = pathlib.Path(__file__).parent
 REPO_ROOT = TESTS_DIR.parent.parent.parent  # tests/ → fastapi/ → backend/ → workspace root
