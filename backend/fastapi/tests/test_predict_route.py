@@ -31,3 +31,28 @@ def test_health_check(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Backend running"}
+
+
+def test_health_check_succeeds_when_mlflow_unwritable(monkeypatch):
+    # Set MLflow max DB retries to 1 so failure is immediate
+    import mlflow.store.db.utils as db_utils
+    monkeypatch.setattr(db_utils, "MAX_RETRY_COUNT", 1)
+
+    # Set MLFLOW_TRACKING_URI to an unwritable / unreachable SQLite path
+    unwritable_uri = "sqlite:///nonexistent_dir_98765/unwritable/mlflow.db"
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", unwritable_uri)
+    monkeypatch.setenv("MLFLOW_ENABLED", "true")
+    with TestClient(app) as c:
+        response = c.get("/")
+        assert response.status_code == 200
+        assert response.json() == {"message": "Backend running"}
+
+
+
+def test_health_check_succeeds_when_mlflow_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLED", "false")
+    with TestClient(app) as c:
+        response = c.get("/")
+        assert response.status_code == 200
+        assert response.json() == {"message": "Backend running"}
+

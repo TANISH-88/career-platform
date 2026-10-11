@@ -2,9 +2,24 @@ import logging
 import os
 import pathlib
 
-import mlflow
-
 logger = logging.getLogger(__name__)
+
+
+
+def _resolve_tracking_uri(tracking_uri: str | None) -> str:
+    """Resolve the MLflow tracking URI, falling back to repo-root sqlite."""
+    if tracking_uri:
+        return tracking_uri
+    if "MLFLOW_TRACKING_URI" in os.environ:
+        return os.environ["MLFLOW_TRACKING_URI"]
+    # Walk up from this file to find the repo root.  Robust against any
+    # number of parent directories (avoids hard-coded parents[N] index).
+    here = pathlib.Path(__file__).resolve()
+    for parent in here.parents:
+        if (parent / ".git").exists() or (parent / "dvc.yaml").exists():
+            return f"sqlite:///{parent.as_posix()}/mlflow.db"
+    # Last resort: current working directory
+    return f"sqlite:///{pathlib.Path.cwd().as_posix()}/mlflow.db"
 
 
 class ModelRegistry:
@@ -18,17 +33,24 @@ class ModelRegistry:
         self.experiment_name = experiment_name or os.environ.get(
             "MLFLOW_EXPERIMENT_NAME", "career-prediction"
         )
-        if tracking_uri:
-            self.tracking_uri = tracking_uri
-        elif "MLFLOW_TRACKING_URI" in os.environ:
-            self.tracking_uri = os.environ["MLFLOW_TRACKING_URI"]
-        else:
-            repo_root = pathlib.Path(__file__).resolve().parents[4]
-            self.tracking_uri = f"sqlite:///{repo_root.as_posix()}/mlflow.db"
+        self.tracking_uri = _resolve_tracking_uri(tracking_uri)
+
+
+    @property
+    def is_enabled(self) -> bool:
+        return os.environ.get("MLFLOW_ENABLED", "true").lower() not in ("false", "0", "no")
 
 
     def register_baseline_if_needed(self) -> None:
+        if not self.is_enabled:
+            logger.warning(
+                "MLflow disabled (MLFLOW_ENABLED=false). Skipping baseline registration."
+            )
+            return
+
         try:
+            import mlflow  # deferred: MLflow is optional at serve time
+
             mlflow.set_tracking_uri(self.tracking_uri)
             mlflow.set_experiment(self.experiment_name)
             runs = mlflow.search_runs(
@@ -42,4 +64,7 @@ class ModelRegistry:
                 mlflow.set_tags({"baseline": "true", "model_version": "frf_v1"})
             logger.info("MLflow baseline run registered successfully.")
         except Exception as e:
-            logger.warning(f"MLflow baseline registration failed (non-fatal): {e}")
+            logger.warning(
+                f"MLflow baseline registration failed (non-fatal): {e}. "
+                "Set MLFLOW_ENABLED=false to suppress this warning."
+            )
