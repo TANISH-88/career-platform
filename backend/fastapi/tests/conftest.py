@@ -11,7 +11,8 @@ os.environ.setdefault("GEMINI_API_KEY", "test-gemini-api-key")
 TESTS_DIR = pathlib.Path(__file__).parent
 REPO_ROOT = TESTS_DIR.parent.parent.parent  # tests/ → fastapi/ → backend/ → workspace root
 MODELS_DIR = str(REPO_ROOT / "backend" / "fastapi" / "models")
-DATA_PATH = str(REPO_ROOT / "data" / "CareerMapping1.csv")
+DATA_PATH = str(TESTS_DIR / "fixtures" / "sample_careers.csv")
+
 
 
 @pytest.fixture(scope="session")
