@@ -68,3 +68,5 @@ class ModelRegistry:
                 f"MLflow baseline registration failed (non-fatal): {e}. "
                 "Set MLFLOW_ENABLED=false to suppress this warning."
             )
+
+
