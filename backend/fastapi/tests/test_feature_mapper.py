@@ -102,6 +102,7 @@ def test_personality_sensitivity(feature_mapper, predictor_service):
     assert detected_change, "Changing personality from 1 to 10 failed to affect model probabilities"
 
 
+@pytest.mark.allow_clamping
 def test_clamp_out_of_bounds_inputs(feature_mapper, caplog):
     """
     4d. Inputs outside [1, 10] are clamped to [1, 10] and log a WARNING.
@@ -116,3 +117,4 @@ def test_clamp_out_of_bounds_inputs(feature_mapper, caplog):
 
         np.testing.assert_allclose(res_oob, res_clamped, atol=1e-9)
         assert any("clamped" in record.message for record in caplog.records)
+

@@ -3,7 +3,7 @@ from starlette.testclient import TestClient
 from app.main import app
 
 VALID_PAYLOAD = {
-    "values": [5.0, 7.0, 6.0, 8.0, 0.6, 0.7, 0.5, 0.8, 0.4, 0.6, 0.7, 0.3, 0.5, 0.6]
+    "values": [5.0, 7.0, 6.0, 8.0, 6.0, 7.0, 5.0, 8.0, 4.0, 6.0, 7.0, 3.0, 5.0, 6.0]
 }
 
 

@@ -168,6 +168,7 @@ def test_parse_resume_returns_502_when_gemini_is_unavailable(client):
     }
 
 
+@pytest.mark.allow_clamping
 def test_extract_skills_clamps_gemini_scores():
     parser = ResumeParser()
     fake_response = SimpleNamespace(

@@ -1,3 +1,4 @@
+import logging
 import os
 import pathlib
 import pandas as pd
@@ -28,6 +29,43 @@ def sample_rows() -> pd.DataFrame:
 @pytest.fixture(scope="session")
 def feature_mapper(models_dir) -> FeatureMapper:
     return FeatureMapper(models_dir=models_dir)
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers",
+        "allow_clamping: opt-out marker for tests that exercise out-of-bounds input clamping on purpose",
+    )
+
+
+class ClampingLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.clamped_warnings = []
+
+    def emit(self, record):
+        if "clamped" in record.getMessage().lower():
+            self.clamped_warnings.append(record)
+
+
+@pytest.fixture(autouse=True)
+def fail_on_clamping_warning(request):
+    handler = ClampingLogHandler()
+    logger = logging.getLogger("app.services.feature_mapper")
+    logger.addHandler(handler)
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+
+    if request.node.get_closest_marker("allow_clamping"):
+        return
+    if handler.clamped_warnings:
+        messages = "\n".join(f"- {r.levelname}: {r.getMessage()}" for r in handler.clamped_warnings)
+        pytest.fail(
+            f"Test triggered clamping warning unexpectedly:\n{messages}\n"
+            f"If this test is intended to exercise clamping, decorate it with @pytest.mark.allow_clamping"
+        )
 
 
 @pytest.fixture(scope="session")

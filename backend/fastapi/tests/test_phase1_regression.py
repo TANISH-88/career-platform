@@ -45,12 +45,12 @@ def test_phase1_feature_mapper_output_shape(feature_mapper, sample_rows):
 
 def test_phase1_feature_mapper_rejects_too_few_values(feature_mapper):
     with pytest.raises(ValueError, match="Expected exactly 14 values"):
-        feature_mapper.transform([0.5] * 13)
+        feature_mapper.transform([5.0] * 13)
 
 
 def test_phase1_feature_mapper_rejects_too_many_values(feature_mapper):
     with pytest.raises(ValueError, match="Expected exactly 14 values"):
-        feature_mapper.transform([0.5] * 15)
+        feature_mapper.transform([5.0] * 15)
 
 
 def test_phase1_predictor_service_smoke(models_dir):
