@@ -1,15 +1,7 @@
 # ML Training Requirements
-# These MUST match the runtime environment in backend/fastapi/requirements.txt
-# to avoid training/serving skew.
-
-# Core ML stack — pin to the SAME version used in backend serving
-scikit-learn==1.7.1
-joblib==1.4.2
-numpy==1.26.4
-pandas==2.2.2
-
-# Experiment tracking
-mlflow==2.15.1
+# Reuse all backend pins to ensure training/serving environment parity.
+# Only training-only extras (DVC, Jupyter, visualisation) are listed here.
+-r ../backend/fastapi/requirements.txt
 
 # Data versioning
 dvc==3.51.2
@@ -19,6 +11,6 @@ jupyter==1.0.0
 ipykernel==6.29.5
 
 # Visualisation (notebook only)
-matplotlib==3.9.2
+matplotlib==3.11.2
 seaborn==0.13.2
 xgboost==2.1.1
