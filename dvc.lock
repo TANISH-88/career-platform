@@ -1,0 +1,45 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: python ml-training/train.py
+    deps:
+    - path: data/CareerMapping1.csv
+      hash: md5
+      md5: 7192e48953b32a0448b020198591567b
+      size: 1775959
+    - path: ml-training/train.py
+      hash: md5
+      md5: ff5a1d62415603b0cb5a2aa80b35f8a7
+      size: 12128
+    params:
+      ml-training/params.yaml:
+        random_seed: 42
+        rf_params:
+          bootstrap: true
+          max_depth: 10
+          max_features: sqrt
+          min_samples_leaf: 7
+          min_samples_split: 7
+          n_estimators: 200
+        test_size: 0.2
+    outs:
+    - path: ml-training/artifacts/frf.pkl
+      hash: md5
+      md5: 240a10e06c1e5b3cea055fb0533ef1b1
+      size: 12567385
+    - path: ml-training/artifacts/pca.pkl
+      hash: md5
+      md5: 5856ac01a73ac36f91740526eb172ef0
+      size: 1095
+    - path: ml-training/artifacts/pipeline.pkl
+      hash: md5
+      md5: 9d9c4a23504321b9bd18e4c269d8f700
+      size: 12577515
+    - path: ml-training/artifacts/scaler.pkl
+      hash: md5
+      md5: 6fad383c8a58d8c243394fd082dff3ef
+      size: 1047
+    - path: ml-training/metrics.json
+      hash: md5
+      md5: 450b2bc2210bbf5717e843014864f83d
+      size: 210

@@ -1,0 +1,19 @@
+stages:
+  train:
+    cmd: python ml-training/train.py
+    deps:
+      - ml-training/train.py
+      - data/CareerMapping1.csv
+    params:
+      - ml-training/params.yaml:
+          - random_seed
+          - test_size
+          - rf_params
+    outs:
+      - ml-training/artifacts/frf.pkl
+      - ml-training/artifacts/scaler.pkl
+      - ml-training/artifacts/pca.pkl
+      - ml-training/artifacts/pipeline.pkl
+    metrics:
+      - ml-training/metrics.json:
+          cache: false

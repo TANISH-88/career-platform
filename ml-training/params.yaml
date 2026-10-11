@@ -1,0 +1,11 @@
+# Hyperparameter file consumed by both train.py and dvc.yaml
+random_seed: 42
+test_size: 0.20
+
+rf_params:
+  bootstrap: true
+  max_depth: 10
+  max_features: sqrt
+  min_samples_leaf: 7
+  min_samples_split: 7
+  n_estimators: 200

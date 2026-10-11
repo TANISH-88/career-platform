@@ -9,6 +9,8 @@ __pycache__/
 .venv/
 venv/
 mlruns/
+mlflow.db
+mlflow.db*
 .pytest_cache/
 
 # Environment
@@ -17,3 +19,13 @@ mlruns/
 # OS
 .DS_Store
 Thumbs.db
+
+# DVC cache (large binary objects)
+/cache/
+.dvc/tmp/
+.dvc/cache/
+.dvc_local_remote/
+
+# Model artifacts are versioned by DVC — do NOT commit raw .pkl to git
+# (uncomment if you add a DVC remote; for now they are committed for dev convenience)
+# backend/fastapi/models/*.pkl
