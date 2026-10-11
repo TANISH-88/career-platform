@@ -55,4 +55,6 @@ def test_health_check_succeeds_when_mlflow_disabled(monkeypatch):
         response = c.get("/")
         assert response.status_code == 200
         assert response.json() == {"message": "Backend running"}
+        assert False, "PROVE_CI_RED: Deliberately failing assertion to prove CI catches test failures"
+
 
