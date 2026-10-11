@@ -40,3 +40,14 @@ ROLE_MAPPING: dict[int, str] = {
 # --- Phase 2 additions ---
 GEMINI_MODEL: str = "gemini-2.5-flash-lite"
 MAX_RESUME_BYTES: int = 5 * 1024 * 1024   # 5 MB
+
+# --- Scale normalization constants ---
+UI_MIN: float = 1.0
+UI_MAX: float = 10.0
+
+TECH_MIN: float = 0.0
+TECH_MAX: float = 6.0
+
+PERSONALITY_MIN: float = 0.0
+PERSONALITY_MAX: float = 1.0
+

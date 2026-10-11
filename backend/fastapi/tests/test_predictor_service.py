@@ -11,7 +11,7 @@ def test_predictor_service_smoke(models_dir):
 def test_predicted_role_is_valid(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     assert result.predicted_role in ROLE_MAPPING.values(), (
         f"predicted_role '{result.predicted_role}' not in ROLE_MAPPING"
@@ -21,7 +21,7 @@ def test_predicted_role_is_valid(feature_mapper, predictor_service, sample_rows)
 def test_top_3_roles_count(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     assert len(result.top_3_roles) == 3
 
@@ -29,7 +29,7 @@ def test_top_3_roles_count(feature_mapper, predictor_service, sample_rows):
 def test_top_3_roles_probabilities_in_range(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     for entry in result.top_3_roles:
         assert 0.0 <= entry.probability <= 1.0, (

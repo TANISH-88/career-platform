@@ -9,7 +9,7 @@ from app.services.feature_mapper import FeatureMapper
 from app.services.predictor import PredictorService
 
 VALID_PAYLOAD = {
-    "values": [5.0, 7.0, 6.0, 8.0, 0.6, 0.7, 0.5, 0.8, 0.4, 0.6, 0.7, 0.3, 0.5, 0.6]
+    "values": [5.0, 7.0, 6.0, 8.0, 6.0, 7.0, 5.0, 8.0, 4.0, 6.0, 7.0, 3.0, 5.0, 6.0]
 }
 
 
@@ -38,8 +38,9 @@ def test_phase1_feature_mapper_output_shape(feature_mapper, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     for _, row in sample_rows.iterrows():
         values = row[feature_cols].tolist()
-        result = feature_mapper.transform(values)
+        result = feature_mapper.transform_training_units(values)
         assert result.shape == (1, 12), f"Expected shape (1, 12), got {result.shape}"
+
 
 
 def test_phase1_feature_mapper_rejects_too_few_values(feature_mapper):
@@ -60,7 +61,7 @@ def test_phase1_predictor_service_smoke(models_dir):
 def test_phase1_predicted_role_is_valid(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     assert result.predicted_role in ROLE_MAPPING.values(), (
         f"predicted_role '{result.predicted_role}' not in ROLE_MAPPING"
@@ -70,7 +71,7 @@ def test_phase1_predicted_role_is_valid(feature_mapper, predictor_service, sampl
 def test_phase1_top_3_roles_count(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     assert len(result.top_3_roles) == 3
 
@@ -78,7 +79,7 @@ def test_phase1_top_3_roles_count(feature_mapper, predictor_service, sample_rows
 def test_phase1_top_3_roles_probabilities_in_range(feature_mapper, predictor_service, sample_rows):
     feature_cols = TECHNICAL_FEATURES + PERSONALITY_FEATURES
     row = sample_rows.iloc[0]
-    features = feature_mapper.transform(row[feature_cols].tolist())
+    features = feature_mapper.transform_training_units(row[feature_cols].tolist())
     result = predictor_service.predict(features)
     for entry in result.top_3_roles:
         assert 0.0 <= entry.probability <= 1.0, (

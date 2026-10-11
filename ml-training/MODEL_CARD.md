@@ -90,3 +90,43 @@ in the test set for that particular seed.
    `frf.pkl` independently. The MLflow-registered `Pipeline` artifact is not
    yet used at serve time; sync is maintained by `promote.py` convention, not
    enforced structurally.
+
+## Input Units (Serving Boundary)
+
+Training data uses two different scales:
+
+| Feature group | Training scale | UI scale |
+|---|---|---|
+| Technical (4 features: Computer Architecture, Programming Skills, Project Management, Communication skills) | `[0, 6]` (integers, occasionally fractional) | `[1, 10]` |
+| Personality (10 features: Openness … Self-transcendence) | `[0, 1]` (continuous floats) | `[1, 10]` |
+
+`FeatureMapper.transform(ui_values)` converts UI → training units via:
+
+```
+technical_train  = (ui - 1) / 9 * 6
+personality_train = (ui - 1) / 9 * 1
+```
+
+Values outside `[1, 10]` are clamped and logged at WARNING level (the
+frontend sends `0` for empty inputs).
+
+### History
+
+Prior to commit `fix(serve): convert UI [1-10] inputs to training units`,
+`FeatureMapper.transform()` passed UI-scale values directly to the scaler.
+Personality values of `1–10` were all far above the model's training range
+`[0, 1]`, landing in a region where the random forest has no training data.
+All personality inputs produced **identical** probability vectors. Technical
+inputs (1–10) partially overlapped training range (0–6), masking the bug.
+
+The 160-row fixture converted to UI units then passed through the old
+transform matched only **29 of 160** (18%) top-1 predictions vs. direct
+training-unit prediction.
+
+### Limitation
+
+The linear map from `[1, 10]` to training range is an assumption. The
+personality features (mean ~0.13–0.71 in `[0, 1]`) appear to follow skewed
+distributions — the linear mapping from `[1, 10]` to `[0, 1]` preserves
+the rank ordering but not the density. A percentile-aware rescaling would
+require distributional calibration and is not implemented.
