@@ -2,4 +2,4 @@
     remote = local_storage
     autostage = true
 ['remote "local_storage"']
-    url = C:\Users\Tanish\dvc_local_remote
+    url = ../../dvc_local_remote
