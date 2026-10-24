@@ -27,11 +27,14 @@ export default function Home() {
 
   async function testPrediction() {
     // Build array in correct order
-    const finalValues = orderedKeys.map((key) => Number(values[key] || ""));
+    const finalValues = orderedKeys.map((key) => {
+      const rawValue = values[key];
+      return rawValue === "" || rawValue === undefined ? NaN : Number(rawValue);
+    });
 
     // Check missing values
-    if (finalValues.some((v) => isNaN(v))) {
-      setResult("No input provided");
+    if (finalValues.some((v) => !Number.isFinite(v))) {
+      setResult("Enter a number for every field");
       return;
     }
 
@@ -42,7 +45,7 @@ export default function Home() {
     });
 
     const data = await response.json();
-    setResult(data.predicted_role || "Prediction failed");
+    setResult(response.ok ? data.predicted_role : data.detail || "Prediction failed");
   }
 
   return (

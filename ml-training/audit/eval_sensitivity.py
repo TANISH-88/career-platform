@@ -12,6 +12,7 @@ from sklearn.base import clone
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import GroupShuffleSplit, train_test_split
+from sklearn.inspection import permutation_importance
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "ml-training"))
@@ -50,6 +51,11 @@ def summarize(name: str, values: list[tuple[float, float]]) -> None:
     )
 
 
+def print_seed_metrics(name: str, seeds: list[int], values: list[tuple[float, float]]) -> None:
+    for seed, value in zip(seeds, values):
+        print(f"{name}_SEED={seed}: accuracy={value[0]:.6f} macro_f1={value[1]:.6f}")
+
+
 def fit_clone(template, x_train, y_train, seed: int):
     model = clone(template)
     model.set_params(classifier__random_state=seed)
@@ -81,6 +87,9 @@ def main() -> None:
     technical_results = []
     personality_results = []
     importance_results = []
+    grouped_raw_results = []
+    grouped_permutation_results = []
+    current_split_membership = []
 
     for seed in SEEDS:
         x = curated[train.ALL_FEATURES]
@@ -101,6 +110,34 @@ def main() -> None:
         grouped_model = fit_clone(template, x.iloc[train_idx], y.iloc[train_idx], seed)
         grouped_results.append(
             metrics(grouped_model, x.iloc[test_idx], y.iloc[test_idx])
+        )
+        raw_groups = raw_like[train.PERSONALITY_FEATURES].apply(tuple, axis=1)
+        raw_train_idx, raw_test_idx = next(
+            GroupShuffleSplit(n_splits=1, test_size=train.TEST_SIZE, random_state=seed)
+            .split(raw_like[train.ALL_FEATURES], labels(raw_like), groups=raw_groups)
+        )
+        grouped_raw_model = fit_clone(
+            template,
+            raw_like[train.ALL_FEATURES].iloc[raw_train_idx],
+            labels(raw_like).iloc[raw_train_idx],
+            seed,
+        )
+        grouped_raw_test_x = raw_like[train.ALL_FEATURES].iloc[raw_test_idx]
+        grouped_raw_test_y = labels(raw_like).iloc[raw_test_idx]
+        grouped_raw_results.append(metrics(grouped_raw_model, grouped_raw_test_x, grouped_raw_test_y))
+        permutation = permutation_importance(
+            grouped_raw_model,
+            grouped_raw_test_x,
+            grouped_raw_test_y,
+            scoring="accuracy",
+            n_repeats=5,
+            random_state=seed,
+        )
+        grouped_permutation_results.append(
+            (
+                float(permutation.importances_mean[:10].sum()),
+                float(permutation.importances_mean[10:].sum()),
+            )
         )
 
         raw_x = raw_like[train.ALL_FEATURES]
@@ -123,6 +160,19 @@ def main() -> None:
         personality_results.append(
             metrics(personality_model, tech_test[train.PERSONALITY_FEATURES], tech_y_test)
         )
+        membership = np.array([
+            tuple(row) in set(map(tuple, x_train.itertuples(index=False, name=None)))
+            for row in x_test.itertuples(index=False, name=None)
+        ])
+        predictions = model.predict(x_test)
+        current_split_membership.append(
+            (
+                float(accuracy_score(y_test[membership], predictions[membership])),
+                float(accuracy_score(y_test[~membership], predictions[~membership])),
+                int(membership.sum()),
+                int((~membership).sum()),
+            )
+        )
 
     print(f"CURATED_ROWS={len(curated)} RAW_ROWS={len(raw_like)} EXTRA_ROWS={len(extra)}")
     summarize("CURRENT_RANDOM_STRATIFIED", random_results)
@@ -131,12 +181,26 @@ def main() -> None:
     summarize("RAW_TRAIN_EXTRA_TEST", extra_results)
     summarize("TECHNICAL_FEATURES_ONLY", technical_results)
     summarize("PERSONALITY_FEATURES_ONLY", personality_results)
+    print_seed_metrics("CURRENT_RANDOM_STRATIFIED", SEEDS, random_results)
+    print_seed_metrics("GROUPED_BY_PERSONALITY_VECTOR", SEEDS, grouped_results)
+    print_seed_metrics("RAW_ROWS_ONLY", SEEDS, raw_results)
+    print_seed_metrics("RAW_TRAIN_EXTRA_TEST", SEEDS, extra_results)
+    print_seed_metrics("TECHNICAL_FEATURES_ONLY", SEEDS, technical_results)
+    print_seed_metrics("PERSONALITY_FEATURES_ONLY", SEEDS, personality_results)
+    print_seed_metrics("GROUPED_RAW_ROWS_ONLY", SEEDS, grouped_raw_results)
     personality_importance = np.array([value[0] for value in importance_results])
     pca_importance = np.array([value[1] for value in importance_results])
     print(
         f"CURRENT_SPLIT_FEATURE_IMPORTANCE: personality={personality_importance.mean():.6f} "
         f"+/- {personality_importance.std():.6f}; pca_2={pca_importance.mean():.6f} "
         f"+/- {pca_importance.std():.6f}"
+    )
+    grouped_personality = np.array([value[0] for value in grouped_permutation_results])
+    grouped_technical = np.array([value[1] for value in grouped_permutation_results])
+    print(
+        f"GROUPED_RAW_PERMUTATION_IMPORTANCE: personality={grouped_personality.mean():.6f} "
+        f"+/- {grouped_personality.std():.6f}; technical={grouped_technical.mean():.6f} "
+        f"+/- {grouped_technical.std():.6f}"
     )
 
     x = curated[train.ALL_FEATURES]
@@ -146,6 +210,11 @@ def main() -> None:
     train_vectors = set(map(tuple, x_train.itertuples(index=False, name=None)))
     overlap = sum(tuple(row) in train_vectors for row in x_test.itertuples(index=False, name=None))
     print(f"CURRENT_SPLIT_TEST_ROWS_WITH_TRAINING_VECTOR={overlap}/{len(x_test)}")
+    for seed, (in_acc, out_acc, in_count, out_count) in zip(SEEDS, current_split_membership):
+        print(
+            f"CURRENT_SPLIT_MEMBERSHIP_SEED={seed}: in_training_vector_accuracy={in_acc:.6f} "
+            f"({in_count}) out_of_training_vector_accuracy={out_acc:.6f} ({out_count})"
+        )
 
 
 if __name__ == "__main__":
