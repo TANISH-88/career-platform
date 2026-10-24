@@ -33,6 +33,9 @@ def main() -> None:
     technical_non_whole = (curated[TECHNICAL_FEATURES] % 1 != 0).any(axis=1)
     fractional = curated[technical_non_whole]
     remaining = curated[~technical_non_whole]
+    raw_keys = set(map(tuple, key(raw).itertuples(index=False, name=None)))
+    curated_keys = list(map(tuple, key(curated).itertuples(index=False, name=None)))
+    extra = curated[[row not in raw_keys for row in curated_keys]]
 
     print(f"CURATED_ROWS={len(curated)}")
     print(f"RAW_ROWS={len(raw)}")
@@ -44,6 +47,13 @@ def main() -> None:
             f"max={fractional[column].max():.12g} mean={fractional[column].mean():.12g} "
             f"| remaining min={remaining[column].min():.12g} "
             f"max={remaining[column].max():.12g} mean={remaining[column].mean():.12g}"
+        )
+    print("RAW_EXTRA_TECHNICAL_STATS")
+    for column in TECHNICAL_FEATURES:
+        print(
+            f"{column}: raw min={raw[column].min():.12g} max={raw[column].max():.12g} "
+            f"mean={raw[column].mean():.12g} | extra min={extra[column].min():.12g} "
+            f"max={extra[column].max():.12g} mean={extra[column].mean():.12g}"
         )
     print("NONWHOLE_ROLE_COUNTS")
     print(fractional[TARGET_COL].value_counts().sort_index().to_string())
@@ -63,9 +73,12 @@ def main() -> None:
         "NONWHOLE_PERSONALITY_VECTORS_IN_RAW="
         f"{sum(personality_matches)}/{len(personality_matches)}"
     )
-
-    raw_keys = set(map(tuple, key(raw).itertuples(index=False, name=None)))
-    curated_keys = list(map(tuple, key(curated).itertuples(index=False, name=None)))
+    print("RAW_EXTRA_PERSONALITY_RANGE")
+    for column in PERSONALITY_FEATURES:
+        print(
+            f"{column}: raw min={raw[column].min():.12g} max={raw[column].max():.12g} "
+            f"| extra min={extra[column].min():.12g} max={extra[column].max():.12g}"
+        )
     print(f"CURATED_ROWS_NOT_IN_RAW={sum(row not in raw_keys for row in curated_keys)}")
 
     vectors = raw[PERSONALITY_FEATURES].apply(tuple, axis=1)
