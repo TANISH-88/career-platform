@@ -54,6 +54,15 @@ def main() -> None:
         f"| remaining min={remaining[PERSONALITY_FEATURES].min().min():.12g} "
         f"max={remaining[PERSONALITY_FEATURES].max().max():.12g}"
     )
+    raw_personality = set(map(tuple, raw[PERSONALITY_FEATURES].itertuples(index=False, name=None)))
+    personality_matches = [
+        tuple(row) in raw_personality
+        for row in fractional[PERSONALITY_FEATURES].itertuples(index=False, name=None)
+    ]
+    print(
+        "NONWHOLE_PERSONALITY_VECTORS_IN_RAW="
+        f"{sum(personality_matches)}/{len(personality_matches)}"
+    )
 
     raw_keys = set(map(tuple, key(raw).itertuples(index=False, name=None)))
     curated_keys = list(map(tuple, key(curated).itertuples(index=False, name=None)))

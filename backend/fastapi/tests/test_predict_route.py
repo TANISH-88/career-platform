@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from starlette.testclient import TestClient
 from app.main import app
@@ -13,6 +15,12 @@ def client():
         yield c
 
 
+@pytest.fixture
+def invalid_client():
+    with TestClient(app, raise_server_exceptions=False) as c:
+        yield c
+
+
 def test_predict_valid_input_returns_200(client):
     response = client.post("/predict", json=VALID_PAYLOAD)
     assert response.status_code == 200
@@ -24,6 +32,18 @@ def test_predict_valid_input_returns_200(client):
 
 def test_predict_wrong_length_returns_422(client):
     response = client.post("/predict", json={"values": [1.0, 2.0, 3.0]})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("value", [0.0, 10.1, float("inf"), float("nan")])
+def test_predict_rejects_invalid_value(value, invalid_client):
+    payload = {"values": VALID_PAYLOAD["values"].copy()}
+    payload["values"][0] = value
+    response = invalid_client.post(
+        "/predict",
+        content=json.dumps(payload, allow_nan=True).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
     assert response.status_code == 422
 
 
@@ -55,4 +75,3 @@ def test_health_check_succeeds_when_mlflow_disabled(monkeypatch):
         response = c.get("/")
         assert response.status_code == 200
         assert response.json() == {"message": "Backend running"}
-

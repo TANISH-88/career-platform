@@ -1,5 +1,7 @@
 from importlib import reload
 
+import json
+
 import pytest
 from starlette.testclient import TestClient
 
@@ -109,6 +111,20 @@ def test_phase1_predict_valid_input_returns_200(client):
 
 def test_phase1_predict_wrong_length_returns_422(client):
     response = client.post("/predict", json={"values": [1.0, 2.0, 3.0]})
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("value", [0.0, 10.1, float("inf"), float("nan")])
+def test_phase1_predict_out_of_range_or_nonfinite_returns_422(value):
+    payload = VALID_PAYLOAD.copy()
+    payload["values"] = VALID_PAYLOAD["values"].copy()
+    payload["values"][0] = value
+    with TestClient(app, raise_server_exceptions=False) as invalid_client:
+        response = invalid_client.post(
+            "/predict",
+            content=json.dumps(payload, allow_nan=True).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
     assert response.status_code == 422
 
 
