@@ -11,8 +11,13 @@ import pandas as pd
 from sklearn.base import clone
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import GroupShuffleSplit, train_test_split
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit, train_test_split
 from sklearn.inspection import permutation_importance
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import pairwise_distances
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "ml-training"))
@@ -70,6 +75,16 @@ def fit_feature_model(template, columns: list[str], x_train, y_train, seed: int)
     return classifier
 
 
+def group_fold_metrics(model_factory, x, y, groups):
+    results = []
+    splitter = GroupKFold(n_splits=5)
+    for fold, (train_idx, test_idx) in enumerate(splitter.split(x, y, groups), 1):
+        model = model_factory()
+        model.fit(x.iloc[train_idx], y.iloc[train_idx])
+        results.append((fold, *metrics(model, x.iloc[test_idx], y.iloc[test_idx])))
+    return results
+
+
 def main() -> None:
     curated = load(CURATED_PATH)
     raw = load(RAW_PATH)
@@ -78,6 +93,7 @@ def main() -> None:
     ).isin(set(raw[train.ALL_FEATURES + [train.TARGET_COL]].apply(tuple, axis=1)))
     extra = curated[extra_mask]
     raw_like = curated[~extra_mask]
+    raw_dedup = raw_like.drop_duplicates(subset=train.ALL_FEATURES + [train.TARGET_COL]).reset_index(drop=True)
     template = joblib.load(ARTIFACT_PATH)
 
     random_results = []
@@ -90,6 +106,7 @@ def main() -> None:
     grouped_raw_results = []
     grouped_permutation_results = []
     current_split_membership = []
+    decomposition_results = []
 
     for seed in SEEDS:
         x = curated[train.ALL_FEATURES]
@@ -173,6 +190,17 @@ def main() -> None:
                 int((~membership).sum()),
             )
         )
+        raw_test_mask = x_test.apply(tuple, axis=1).isin(
+            set(raw_like[train.ALL_FEATURES].apply(tuple, axis=1))
+        ).to_numpy()
+        decomposition_results.append(
+            (
+                float(accuracy_score(y_test[raw_test_mask], predictions[raw_test_mask])),
+                float(accuracy_score(y_test[~raw_test_mask], predictions[~raw_test_mask])),
+                int(raw_test_mask.sum()),
+                int((~raw_test_mask).sum()),
+            )
+        )
 
     print(f"CURATED_ROWS={len(curated)} RAW_ROWS={len(raw_like)} EXTRA_ROWS={len(extra)}")
     summarize("CURRENT_RANDOM_STRATIFIED", random_results)
@@ -215,6 +243,76 @@ def main() -> None:
             f"CURRENT_SPLIT_MEMBERSHIP_SEED={seed}: in_training_vector_accuracy={in_acc:.6f} "
             f"({in_count}) out_of_training_vector_accuracy={out_acc:.6f} ({out_count})"
         )
+    print("CURRENT_SPLIT_RAW_EXTRA_TEST_ACCURACY")
+    for seed, (raw_acc, extra_acc, raw_count, extra_count) in zip(SEEDS, decomposition_results):
+        print(
+            f"SEED={seed}: raw_accuracy={raw_acc:.6f} ({raw_count}) "
+            f"extra_accuracy={extra_acc:.6f} ({extra_count})"
+        )
+    raw_accs = np.array([v[0] for v in decomposition_results])
+    extra_accs = np.array([v[1] for v in decomposition_results])
+    print(
+        f"CURRENT_SPLIT_RAW_TEST_ACCURACY_MEAN_STD={raw_accs.mean():.6f} +/- {raw_accs.std():.6f}"
+    )
+    print(
+        f"CURRENT_SPLIT_EXTRA_TEST_ACCURACY_MEAN_STD={extra_accs.mean():.6f} +/- {extra_accs.std():.6f}"
+    )
+
+    personas = raw_dedup[train.PERSONALITY_FEATURES].apply(tuple, axis=1)
+    persona_role = raw_dedup.assign(_persona=personas).drop_duplicates(
+        subset=["_persona", train.TARGET_COL]
+    )
+    print(f"RAW_DISTINCT_ROWS_AFTER_EXACT_DEDUP={len(raw_dedup)}")
+    print("PERSONAS_PER_ROLE")
+    print(
+        persona_role.groupby(train.TARGET_COL)["_persona"].nunique().sort_index().to_string()
+    )
+
+    x_raw = raw_dedup[train.ALL_FEATURES]
+    y_raw = labels(raw_dedup)
+    groups_raw = raw_dedup[train.PERSONALITY_FEATURES].apply(tuple, axis=1)
+    model_factories = {
+        "GROUPKFold_CURRENT_RF_PIPELINE": lambda: clone(template),
+        "GROUPKFold_1NN_PERSONALITY": lambda: KNeighborsClassifier(n_neighbors=1),
+        "GROUPKFold_LOGISTIC_PERSONALITY": lambda: Pipeline(
+            [("scaler", StandardScaler()), ("classifier", LogisticRegression(max_iter=2000, random_state=42))]
+        ),
+        "GROUPKFold_RF_TECHNICAL": lambda: RandomForestClassifier(
+            **template.named_steps["classifier"].get_params()
+        ),
+    }
+    model_columns = {
+        "GROUPKFold_CURRENT_RF_PIPELINE": train.ALL_FEATURES,
+        "GROUPKFold_1NN_PERSONALITY": train.PERSONALITY_FEATURES,
+        "GROUPKFold_LOGISTIC_PERSONALITY": train.PERSONALITY_FEATURES,
+        "GROUPKFold_RF_TECHNICAL": train.TECHNICAL_FEATURES,
+    }
+    print("PERSONA_GROUPKFOlD_RESULTS")
+    for name, factory in model_factories.items():
+        columns = model_columns[name]
+        results = group_fold_metrics(factory, x_raw[columns], y_raw, groups_raw)
+        values = np.array([row[1] for row in results])
+        print(f"{name}_MEAN_ACCURACY={values.mean():.6f} +/- {values.std():.6f}")
+        for fold, accuracy, macro_f1 in results:
+            print(f"{name}_FOLD={fold}: accuracy={accuracy:.6f} macro_f1={macro_f1:.6f}")
+
+    persona_vectors = list(dict.fromkeys(groups_raw))
+    persona_roles = persona_role.groupby("_persona")[train.TARGET_COL].agg(set).to_dict()
+    distances = pairwise_distances(np.asarray(persona_vectors, dtype=float), metric="euclidean")
+    same_role = []
+    different_role = []
+    for i in range(len(persona_vectors)):
+        for j in range(i + 1, len(persona_vectors)):
+            if persona_roles[persona_vectors[i]] & persona_roles[persona_vectors[j]]:
+                same_role.append(distances[i, j])
+            else:
+                different_role.append(distances[i, j])
+    print(
+        f"PERSONA_DISTANCE_SAME_ROLE_MEAN={np.mean(same_role):.6f} "
+        f"DIFFERENT_ROLE_MEAN={np.mean(different_role):.6f}"
+    )
+    majority_accuracy = y_raw.value_counts(normalize=True).max()
+    print(f"MAJORITY_CLASS_BASELINE_ACCURACY={majority_accuracy:.6f}")
 
 
 if __name__ == "__main__":
