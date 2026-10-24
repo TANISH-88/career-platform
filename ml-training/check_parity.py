@@ -24,24 +24,12 @@ import pandas as pd
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURE_CSV = REPO_ROOT / "backend" / "fastapi" / "tests" / "fixtures" / "sample_careers.csv"
 
-TECHNICAL_FEATURES = [
-    "Computer Architecture",
-    "Programming Skills",
-    "Project Management",
-    "Communication skills",
-]
-PERSONALITY_FEATURES = [
-    "Openness",
-    "Conscientousness",
-    "Extraversion",
-    "Agreeableness",
-    "Emotional_Range",
-    "Conversation",
-    "Openness to Change",
-    "Hedonism",
-    "Self-enhancement",
-    "Self-transcendence",
-]
+sys.path.insert(0, str(REPO_ROOT / "backend" / "fastapi"))
+
+from app.config.constants import PERSONALITY_FEATURES, ROLE_MAPPING, TECHNICAL_FEATURES
+from app.services.feature_mapper import FeatureMapper
+from app.services.predictor import PredictorService
+
 ALL_FEATURES = TECHNICAL_FEATURES + PERSONALITY_FEATURES
 
 PROB_TOL = 1e-9
@@ -52,13 +40,17 @@ def run_pipeline_path(pipeline, df: pd.DataFrame) -> np.ndarray:
     return pipeline.predict_proba(df[ALL_FEATURES])
 
 
-def run_serving_path(scaler, pca, frf, df: pd.DataFrame) -> np.ndarray:
-    """Run inference through the separate scaler+pca+frf pkl files (serving path)."""
-    tech_scaled = scaler.transform(df[TECHNICAL_FEATURES])
-    tech_pca = pca.transform(tech_scaled)
-    personality = df[PERSONALITY_FEATURES].values
-    X = np.concatenate([personality, tech_pca], axis=1)
-    return frf.predict_proba(X)
+def run_serving_path(
+    artifacts_dir: pathlib.Path, df: pd.DataFrame
+) -> list:
+    """Run inference through the shipping FeatureMapper and PredictorService."""
+    feature_mapper = FeatureMapper(models_dir=str(artifacts_dir))
+    predictor_service = PredictorService(models_dir=str(artifacts_dir))
+    predictions = []
+    for row in df[ALL_FEATURES].itertuples(index=False, name=None):
+        features = feature_mapper.transform_training_units(list(row))
+        predictions.append(predictor_service.predict(features))
+    return predictions
 
 
 def check_parity(artifacts_dir: pathlib.Path) -> bool:
@@ -75,9 +67,6 @@ def check_parity(artifacts_dir: pathlib.Path) -> bool:
 
     print(f"[PARITY] Loading artifacts from: {artifacts_dir}")
     pipeline = joblib.load(pipeline_path)
-    frf = joblib.load(frf_path)
-    scaler = joblib.load(scaler_path)
-    pca = joblib.load(pca_path)
 
     print(f"[PARITY] Loading fixture: {FIXTURE_CSV}")
     df = pd.read_csv(FIXTURE_CSV)
@@ -86,26 +75,41 @@ def check_parity(artifacts_dir: pathlib.Path) -> bool:
     print(f"[PARITY] Fixture rows: {len(df)}")
 
     proba_pipeline = run_pipeline_path(pipeline, df)
-    proba_serving = run_serving_path(scaler, pca, frf, df)
+    predictions_serving = run_serving_path(artifacts_dir, df)
+    pipeline_classes = pipeline.classes_
+    top3_indices = np.argsort(proba_pipeline, axis=1)[:, -3:][:, ::-1]
+    max_diff = 0.0
+    top1_mismatches = 0
+    top3_mismatches = 0
 
-    max_diff = float(np.max(np.abs(proba_pipeline - proba_serving)))
-    top1_pipeline = np.argmax(proba_pipeline, axis=1)
-    top1_serving = np.argmax(proba_serving, axis=1)
-    top1_mismatches = int(np.sum(top1_pipeline != top1_serving))
+    for row_index, prediction in enumerate(predictions_serving):
+        pipeline_top1_role = ROLE_MAPPING[int(pipeline_classes[np.argmax(proba_pipeline[row_index])])]
+        if prediction.predicted_role != pipeline_top1_role:
+            top1_mismatches += 1
+
+        for serving_role, class_index in zip(
+            prediction.top_3_roles, top3_indices[row_index]
+        ):
+            expected_role = ROLE_MAPPING[int(pipeline_classes[class_index])]
+            expected_probability = float(proba_pipeline[row_index, class_index])
+            max_diff = max(max_diff, abs(expected_probability - serving_role.probability))
+            if serving_role.role != expected_role or not np.isclose(
+                serving_role.probability, expected_probability, atol=PROB_TOL, rtol=0
+            ):
+                top3_mismatches += 1
 
     print(f"[PARITY] Max probability difference (pipeline vs serving): {max_diff:.2e}")
-    print(f"[PARITY] Top-1 mismatches: {top1_mismatches}/{len(df)}")
+    print(f"[PARITY] Top-1 role mismatches: {top1_mismatches}/{len(df)}")
+    print(f"[PARITY] Top-3 role/probability mismatches: {top3_mismatches}/{len(df) * 3}")
 
-    if max_diff > PROB_TOL:
+    if top1_mismatches > 0 or top3_mismatches > 0:
         print(
-            f"[PARITY FAIL] Max probability diff {max_diff:.2e} exceeds tolerance {PROB_TOL:.0e}"
+            f"[PARITY FAIL] PredictorService output differs from pipeline "
+            f"(probability tolerance {PROB_TOL:.0e})"
         )
         return False
-    if top1_mismatches > 0:
-        print(f"[PARITY FAIL] {top1_mismatches} top-1 prediction(s) differ between pipeline and serving paths")
-        return False
 
-    print("[PARITY OK] pipeline.pkl and separate pkl files produce identical outputs.")
+    print("[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.")
     return True
 
 
