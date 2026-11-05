@@ -21,7 +21,7 @@
 - **Commands run and exact last line of output:**
   - `npm run build` (in `my-app`) → `○  (Static)  prerendered as static content`
 - **Evidence:**
-  - `Evidence: pending | cd my-app; npm run build -> ○ (Static) prerendered as static content | CI: pending`
+  - `Evidence: b10a1ed | cd my-app; npm run build -> ○ (Static) prerendered as static content | CI: https://github.com/TANISH-88/career-platform/actions`
 - **Open issues / NOT VERIFIED:**
   - CP9: Owner must start the backend server and perform Test A & Test B in the browser.
 - **Next step:** Owner runs backend and performs browser validation.
