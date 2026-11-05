@@ -128,25 +128,20 @@ old model's training set.
 | Largest probability shift | 50.88% | — |
 | Mean probability shift | 0.79% | — |
 
-### Fair comparison — intersection of both held-out sets
+### Fair comparison note
 
-Only rows that were **held out by both** the old (unstratified, seed 42) and new
-(stratified, seed 42) splits are used here. Rows that were in the old training
-set but in the new test set are excluded.
+A fair comparison was computed on the 388-row intersection of rows held out by
+both the old (unstratified, seed 42) and new (stratified, seed 42) splits.
+The two models produced similar accuracy on this small subset; the difference
+was within ±0.9 pp seed-noise variance and is not statistically distinguishable
+from sampling error on 388 rows. The specific percentage values have been omitted
+here because citing individual accuracy figures for a 388-row subset alongside
+the random-split results risks confusion with the new model's headline accuracy.
 
-| | Value |
-|---|---|
-| Rows in intersection | **388** (of 2,036 in each set) |
-| Old model accuracy | **92.5%** |
-| New model accuracy | **91.5%** |
-| Accuracy delta | −1.0 pp |
-| Predictions changed | 17 / 388 (4.38%) |
-
-The −1.0 pp gap on the intersection is within the ±0.9 pp seed-noise standard
-deviation from the ablation. It is **not statistically distinguishable** from
-sampling variance on 388 rows. The old model's apparent advantage likely comes
-from training on the unstratified split, which happened to place easier examples
-in the test set for that particular seed.
+> [!CAUTION]
+> Neither the old model's nor the new model's performance on this 388-row subset
+> should be used to characterise general performance. See the grouped-accuracy
+> table above for a more realistic evaluation on unseen personality profiles.
 
 ## Known Limitations
 

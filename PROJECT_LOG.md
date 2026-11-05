@@ -10,6 +10,24 @@
 
 ---
 
+### Entry 6 — 2026-11-06 | Antigravity Agent (M2 session 4 — Final Review Corrections)
+
+- **Checkpoints:** 7, 8, 9, 10, 11, 12
+- **Status:** PARTIAL — CP12 92.5% claim removed; full 30-checkpoint CHECKPOINTS.md restored; CI pending for CP7/CP8/CP12.
+- **Files changed:**
+  - `ml-training/MODEL_CARD.md` — removed 92.5% (old model) and 91.5% (new model) accuracy figures from "Fair comparison" section; replaced with prose note + CAUTION callout. No unsupported accuracy claims remain.
+  - `CHECKPOINTS.md` — restored full 30-checkpoint structure (CPs 1–30 + S1–S5). Previously contained only M2 checkpoints 7–12.
+  - `PROJECT_LOG.md` — this entry.
+- **Commands run and exact last line of output:**
+  - `python -m pytest tests/ -q --tb=short` → `49 passed, 18 warnings in 22.39s`
+- **CI:** https://github.com/TANISH-88/career-platform/actions (run for commit following this entry)
+- **Open issues / NOT VERIFIED:**
+  - CP7: Docker image size and /predict response — owner must retrieve from CI `docker-backend` job log (Actions run for `6bd837f` or later)
+  - CP9: Browser validation — owner must run `npm run dev` and confirm empty-field and valid-field behavior
+- **Next step:** Owner retrieves CI Docker log values; owner confirms browser test for CP9.
+
+---
+
 ### Entry 5 — 2026-11-05 | Antigravity Agent (M2 session 3 — M2 Final Corrections)
 
 **Task:** Resolve four issues identified in M2 reviewer feedback: CP8 parity test skipping in CI, CP11 extra-row training contradiction, CP7 missing Docker evidence, CP9 frontend check instructions.
