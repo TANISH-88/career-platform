@@ -10,6 +10,70 @@
 
 ---
 
+### Entry 5 — 2026-11-05 | Antigravity Agent (M2 session 3 — M2 Final Corrections)
+
+**Task:** Resolve four issues identified in M2 reviewer feedback: CP8 parity test skipping in CI, CP11 extra-row training contradiction, CP7 missing Docker evidence, CP9 frontend check instructions.
+**Checkpoints:** 7, 8, 9, 11, 12
+**Status:** DONE (local) — CI verification pending push.
+
+**Files changed:**
+- `ml-training/train.py` — `load_data()` now excludes 1,000 unknown-origin extra rows by default (`exclude_extra_rows=True`); train() passes `exclude_extra_rows=True` explicitly; MLflow tag `extra_rows_excluded=true` added
+- `ml-training/artifacts/.gitignore` — removed entries blocking `frf.pkl`, `scaler.pkl`, `pca.pkl`, `pipeline.pkl` from Git; artifacts now committed for CI parity gate
+- `ml-training/artifacts/frf.pkl` — committed to Git (was gitignored before)
+- `ml-training/artifacts/scaler.pkl` — committed to Git
+- `ml-training/artifacts/pca.pkl` — committed to Git
+- `ml-training/artifacts/pipeline.pkl` — committed to Git
+- `backend/fastapi/tests/test_parity.py` — changed from `skipif` (skip when missing) to `pytest.fail` (hard fail when missing); parity test now always runs in CI
+- `backend/fastapi/tests/test_parity_failing_proof.py` — new: proves parity gate catches a deliberately wrong model
+- `ml-training/tests/test_extra_row_exclusion.py` — new: 3 tests proving extra rows are excluded from default training
+- `ml-training/MODEL_CARD.md` — fixed Data table (9,179 raw rows; extra rows excluded by default); removed contradiction stating "Training currently uses all 10,179 rows"
+- `README.md` — added Data Notes section; updated CI description to include parity gate and exclusion test
+- `.github/workflows/ci.yml` — added extra-row exclusion test step and parity gate step in backend job; enhanced Docker smoke test output format
+- `CHECKPOINTS.md` — updated all checkpoint statuses
+- `PROJECT_LOG.md` — this entry
+
+**Local test evidence:**
+
+Backend suite (49 tests):
+```
+pytest backend/fastapi/tests/ -v
+test_parity.py::test_serving_parity PASSED       [19%]  ← PASSED, NOT skipped
+...
+49 passed, 18 warnings in 28.21s
+```
+
+Parity tests:
+```
+pytest backend/fastapi/tests/test_parity.py backend/fastapi/tests/test_parity_failing_proof.py -v
+test_parity.py::test_serving_parity PASSED
+test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
+test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
+3 passed in 7.56s
+```
+
+Extra-row exclusion tests:
+```
+pytest ml-training/tests/test_extra_row_exclusion.py -v
+test_extra_row_exclusion.py::test_default_load_excludes_extra_rows PASSED
+test_extra_row_exclusion.py::test_full_load_includes_extra_rows PASSED
+test_extra_row_exclusion.py::test_extra_rows_have_fractional_technical PASSED
+3 passed in 5.96s
+```
+
+Parity check CLI:
+```
+python ml-training/check_parity.py
+[PARITY] Fixture rows: 160
+[PARITY] Max probability difference (pipeline vs serving): 0.00e+00
+[PARITY] Top-1 role mismatches: 0/160
+[PARITY] Top-3 role/probability mismatches: 0/480
+[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
+```
+
+**Evidence:** NOT YET COMMITTED | CI: PENDING PUSH
+
+---
+
 ### Entry 4 — 2026-11-05 | Antigravity Agent (M2 session 2)
 
 **Task:** Complete MODEL_CARD.md grouped-accuracy tables, create PROJECT_LOG.md and CHECKPOINTS.md, fix models path in main.py, commit and push all M2 tracking files.
