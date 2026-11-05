@@ -38,14 +38,18 @@ export default function Home() {
       return;
     }
 
-    const response = await fetch("http://127.0.0.1:8000/predict", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ values: finalValues }),
-    });
+    try {
+      const response = await fetch("http://127.0.0.1:8000/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ values: finalValues }),
+      });
 
-    const data = await response.json();
-    setResult(response.ok ? data.predicted_role : data.detail || "Prediction failed");
+      const data = await response.json();
+      setResult(response.ok ? data.predicted_role : data.detail || "Prediction failed");
+    } catch (err) {
+      setResult("Connection error: backend server is not running on http://127.0.0.1:8000");
+    }
   }
 
   return (

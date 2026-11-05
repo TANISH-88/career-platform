@@ -10,6 +10,24 @@
 
 ---
 
+### Entry 11 — 2026-11-06 | Antigravity Agent (M2 session 9 — Frontend Error Handling Fix)
+
+- **Checkpoints:** 9
+- **Status:** OPEN — Frontend fetch wrapped in try/catch to gracefully handle connection errors when backend is offline; CP9 remains open for owner verification.
+- **Task:** User encountered `TypeError: Failed to fetch` during CP9 Test B because the FastAPI backend was not running. Added try/catch block around `fetch("http://127.0.0.1:8000/predict")` in `my-app/app/page.js` to prevent unhandled runtime errors in Next.js when the backend is offline.
+- **Files changed:**
+  - `my-app/app/page.js` — wrapped prediction fetch in try/catch block.
+  - `PROJECT_LOG.md` — this entry.
+- **Commands run and exact last line of output:**
+  - `npm run build` (in `my-app`) → `○  (Static)  prerendered as static content`
+- **Evidence:**
+  - `Evidence: pending | cd my-app; npm run build -> ○ (Static) prerendered as static content | CI: pending`
+- **Open issues / NOT VERIFIED:**
+  - CP9: Owner must start the backend server and perform Test A & Test B in the browser.
+- **Next step:** Owner runs backend and performs browser validation.
+
+---
+
 ### Entry 10 — 2026-11-06 | Antigravity Agent (M2 session 8 — Fix Checkpoint Definitions & Record CI Evidence)
 
 - **Checkpoints:** 1–30, S1–S5 (CP7, CP8, CP12 verified; CP9 remains open)
