@@ -10,6 +10,64 @@
 
 ---
 
+### Entry 9 — 2026-11-06 | Antigravity Agent (M2 session 7 — GitHub Sync Verification)
+
+- **Checkpoints:** 7, 8, 9, 12
+- **Status:** PARTIAL — Branch fully verified; local CP8 and CP12 confirmed clean; CP7 Docker evidence NOT VERIFIED (owner must retrieve from CI log); CP9 open (owner browser test).
+- **Task:** Full GitHub sync verification pass. Confirmed all reported commits are ancestors of origin/main. Verified remote file contents (CHECKPOINTS.md, PROJECT_LOG.md, MODEL_CARD.md, README.md). Re-ran parity tests and check_parity.py.
+- **Files changed:**
+  - `PROJECT_LOG.md` — this entry.
+  - `CHECKPOINTS.md` — CP8 and CP12 status updated with fresh verification results.
+- **Commands run and exact last line of output:**
+  - `git fetch origin main` → `* branch main -> FETCH_HEAD`
+  - `git branch -vv` → `* main 33655a9 [origin/main] tracking(m2): session 6 verification pass...`
+  - `git ls-remote origin refs/heads/main` → `33655a96425b55c5ea3178ab362b25ee81e5c1f6  refs/heads/main`
+  - `git merge-base --is-ancestor 5876db4 origin/main` → exit 0 (IS ancestor ✅)
+  - `git merge-base --is-ancestor 1733ad5 origin/main` → exit 0 (IS ancestor ✅)
+  - `git merge-base --is-ancestor 33655a9 origin/main` → exit 0 (IS ancestor ✅)
+  - `git show origin/main:CHECKPOINTS.md` → all 30 CPs + S1–S5 confirmed present
+  - `git show origin/main:PROJECT_LOG.md` → Entries 1–8 all present
+  - `git show origin/main:ml-training/MODEL_CARD.md` → 0.924 is seed-ablation value (mean=0.908); no headline 92% claim
+  - `git show origin/main:README.md` → no 92% matches
+  - `git show origin/main:ml-training/artifacts/pipeline.pkl` → exit 0 (file present ✅)
+  - `python -m pytest backend/fastapi/tests/test_parity.py backend/fastapi/tests/test_parity_failing_proof.py -v` → `3 passed in 4.88s`
+  - `python ml-training/check_parity.py` → `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
+- **Parity test detail (2026-11-06 re-verified):**
+  ```
+  backend/fastapi/tests/test_parity.py::test_serving_parity PASSED
+  backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
+  backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
+  3 passed in 4.88s
+  ```
+- **Parity CLI detail (2026-11-06 re-verified):**
+  ```
+  [PARITY] Loading artifacts from: C:\Users\Tanish\p4\ml-training\artifacts
+  [PARITY] Loading fixture: C:\Users\Tanish\p4\backend\fastapi\tests\fixtures\sample_careers.csv
+  [PARITY] Fixture rows: 160
+  [PARITY] Max probability difference (pipeline vs serving): 0.00e+00
+  [PARITY] Top-1 role mismatches: 0/160
+  [PARITY] Top-3 role/probability mismatches: 0/480
+  [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
+  ```
+- **Evidence:**
+  - `Evidence: 33655a9 | git merge-base --is-ancestor 5876db4 origin/main -> exit 0 | CI: N/A`
+  - `Evidence: 33655a9 | git merge-base --is-ancestor 1733ad5 origin/main -> exit 0 | CI: N/A`
+  - `Evidence: 33655a9 | git merge-base --is-ancestor 33655a9 origin/main -> exit 0 | CI: N/A`
+  - `Evidence: 33655a9 | python ml-training/check_parity.py -> [PARITY OK] pipeline.pkl and PredictorService produce identical outputs. | CI: local`
+  - `Evidence: 33655a9 | python -m pytest test_parity.py test_parity_failing_proof.py -v -> 3 passed in 4.88s | CI: local`
+- **CI links:**
+  - CI #9: https://github.com/TANISH-88/career-platform/actions/runs/42066627462 (commit `6bd837f` — green, owner confirmed)
+  - CI #12: https://github.com/TANISH-88/career-platform/actions/runs/42080869679 (commit `f627ff4` — green, owner confirmed)
+  - CI for `33655a9`: https://github.com/TANISH-88/career-platform/actions (triggered; result NOT VERIFIED locally)
+- **Open issues / NOT VERIFIED:**
+  - CP7: Docker image size (`Image: backend:test | Size: ...`) and /predict JSON — owner must open CI #12 docker-backend job → "Report image size" + "Verify POST /predict" steps, copy exact lines here.
+  - CP8: CI confirmation that `test_parity.py::test_serving_parity` shows PASSED (not SKIPPED) — owner must verify in CI #12 "Run pytest" step output.
+  - CP9: Browser test — owner must run `npm run dev`, perform Test A and Test B, reply to authorize.
+  - CP12: CI run for `33655a9` green — owner must confirm.
+- **Next step:** Owner retrieves Docker evidence (CP7); owner confirms parity PASSED in CI (CP8); owner does browser test (CP9); owner confirms CI for `33655a9` green (CP12).
+
+---
+
 ### Entry 8 — 2026-11-06 | Antigravity Agent (M2 session 6 — Final Verification)
 
 - **Checkpoints:** 7, 8, 9, 12

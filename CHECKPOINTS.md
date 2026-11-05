@@ -188,13 +188,18 @@ python ml-training/check_parity.py
 [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
 ```
 
-**Parity pytest (2026-11-06, re-verified):**
+**Parity pytest (2026-11-06, re-verified session 7):**
 ```
 pytest backend/fastapi/tests/test_parity.py backend/fastapi/tests/test_parity_failing_proof.py -v
-tests/test_parity.py::test_serving_parity PASSED
-tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
-tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
-3 passed in 5.51s
+backend/fastapi/tests/test_parity.py::test_serving_parity PASSED
+backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
+backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
+3 passed in 4.88s
+```
+
+**Remote verification (2026-11-06):**
+```
+git show origin/main:ml-training/artifacts/pipeline.pkl  -> exit 0 (file confirmed present on GitHub)
 ```
 
 **Failing proof (2026-11-05):**
