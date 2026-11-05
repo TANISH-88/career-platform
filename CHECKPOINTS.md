@@ -5,7 +5,7 @@
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
 > Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3–M5, P1–P4, S1–S5: 0 ✅
 >
-> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are now genuinely verified. M2 is ready for reviewer approval. M3 has NOT been started.
+> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 has NOT been started.
 
 ---
 
