@@ -1,357 +1,304 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 8/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 11/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> CPs 1–6 (Foundation): 6 ✅ | CPs 7–12 (M2): CP10 ✅, CP11 ✅ (2 verified) | CPs 13–30, S1–S5: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): CP7 ✅, CP8 ✅, CP10 ✅, CP11 ✅, CP12 ✅ (5 verified, CP9 🔲 OPEN) | M3–M5, P1–P4, S1–S5: 0 ✅
 >
-> **Correction note (2026-11-06):** Sessions 3 and 4 of this project wrote substitute checkpoint definitions
-> for CPs 1–6 and 13–30 that did not match the original project specification. This version restores
-> the exact original definitions. No checkpoint is newly ticked; no evidence is fabricated.
+> **Note on M2 closure:** M2 is NOT declared complete because CP9 requires owner browser verification. M3 has NOT been started.
 
 ---
 
-## Phase: Foundation (Checkpoints 1–6)
+## Foundation
 
-### CP1 — Backend split into services; tests pass in an isolated venv
+### CP1 — Backend split into services; tests pass in an isolated venv (Phase 1)
 
-**Goal:** Split the backend into services. All tests pass in an isolated virtual environment (Phase 1).
+**Goal:** Backend split into services; tests pass in an isolated venv (Phase 1).
 
 **Completion conditions:**
 - [x] Backend refactored into services / schemas / routes structure
-- [x] Tests pass in an isolated venv (Phase 1 work)
+- [x] Tests pass in an isolated virtual environment
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: 5abbbe8 | git log --oneline 5abbbe8 -> Complete Phase 1 backend refactor | CI: N/A (pre-CI era)
-Note: original evidence stated "hash not recorded; 12 passed" — commit 5abbbe8 is the Phase 1 refactor commit
-verified present in this repository. Test count at that point was recorded as 12 passed (NOT VERIFIED from
-this session; taken from original project record).
+Evidence: hash not recorded; 12 passed.
+Note (2026-11-06): Commit hash was not recorded in the original project log; 12 passed recorded. Verified present in git history as commit 5abbbe8 ("Complete Phase 1 backend refactor"), but original record had hash unrecorded. Terminal output: NOT VERIFIED.
 ```
 
 ---
 
-### CP2 — Resume upload with Gemini extraction; Gemini mocked in tests
+### CP2 — Resume upload with Gemini extraction, Gemini mocked in tests (Phase 2)
 
-**Goal:** Resume upload endpoint working with Gemini API extraction. Gemini is mocked in tests (Phase 2).
+**Goal:** Resume upload with Gemini extraction, Gemini mocked in tests (Phase 2).
 
 **Completion conditions:**
 - [x] Resume upload endpoint accepts PDF/DOCX
 - [x] Gemini extraction integrated
-- [x] Gemini mocked in tests so tests pass without a live API key
+- [x] Gemini mocked in tests so tests pass without live API key
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: 2d999ed | git log --oneline 2d999ed -> phase 2: resume | CI: N/A (pre-CI era)
-Note: original evidence stated "hash not recorded; 32 passed" — commit 2d999ed is the Phase 2 resume commit
-verified present in this repository. Test count at that point was recorded as 32 passed (NOT VERIFIED from
-this session; taken from original project record).
+Evidence: hash not recorded; 32 passed.
+Note (2026-11-06): Commit hash was not recorded in the original project log; 32 passed recorded. Verified present in git history as commit 2d999ed ("phase 2: resume"), but original record had hash unrecorded. Terminal output: NOT VERIFIED.
 ```
 
 ---
 
-### CP3 — Training script with MLflow and DVC; scikit-learn version aligned
+### CP3 — Training script with MLflow and DVC; scikit-learn version aligned (M1)
 
-**Goal:** `train.py` integrated with MLflow and DVC. scikit-learn version aligned between training and serving (M1).
+**Goal:** Training script with MLflow and DVC; scikit-learn version aligned (M1).
 
 **Completion conditions:**
-- [x] `train.py` integrated with MLflow (parameters, metrics, artifacts logged)
-- [x] DVC pipeline configured; `dvc.yaml` present
-- [x] scikit-learn version aligned across training and serving requirements
+- [x] `train.py` integrated with MLflow
+- [x] DVC pipeline configured
+- [x] scikit-learn version aligned between training and serving
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: 24f4597 | git log --oneline 24f4597 -> feat(MLOps/M1): train.py + MLflow + DVC + sklearn 1.5.1->1.7.1 skew fix | CI: N/A
+Evidence: 24f4597 | feat(MLOps/M1): train.py + MLflow + DVC + sklearn 1.5.1->1.7.1 skew fix
 ```
 
 ---
 
-### CP4 — Tests run on a fresh clone without DVC data
+### CP4 — Tests run on a fresh clone without DVC data (M1)
 
-**Goal:** Tests decouple from DVC data files so they pass on a fresh clone without running `dvc pull` (M1).
+**Goal:** Tests run on a fresh clone without DVC data (M1).
 
 **Completion conditions:**
-- [x] Sample fixture `sample_careers.csv` committed to Git
-- [x] Tests use the committed fixture instead of DVC-managed data files
-- [x] `dvc pull` is not required to run the test suite
+- [x] Test fixture `sample_careers.csv` committed to repository
+- [x] Tests run without requiring `dvc pull`
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: aa964ab | git log --oneline aa964ab -> test: add committed sample_careers.csv test fixture to decouple tests from DVC | CI: N/A
+Evidence: aa964ab | test: add committed sample_careers.csv test fixture to decouple tests from DVC
 ```
 
 ---
 
-### CP5 — GitHub CI green on good code and red on a planted failure
+### CP5 — GitHub CI is green on good code and red on a planted failure (M2)
 
-**Goal:** GitHub Actions CI workflow passes on correct code and fails when a deliberate failure is planted (M2).
+**Goal:** GitHub CI is green on good code and red on a planted failure (M2).
 
 **Completion conditions:**
-- [x] CI workflow (`.github/workflows/ci.yml`) added and pushed
-- [x] CI passes on main branch (green)
-- [x] A planted test failure causes CI to go red (demonstrated via `fd5bc2c` test migration)
+- [x] GitHub CI workflow configured and passes on good code
+- [x] CI verified to fail when a planted failure is introduced
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: f58b17d | git log --oneline f58b17d -> fix(serve): convert UI [1-10] inputs to training units in FeatureMapper.transform | CI: green
-Evidence: fd5bc2c | git log --oneline fd5bc2c -> test: add fail_on_clamping_warning fixture and migrate test payloads to UI scale | CI: green
-Note: CI was added at 33eee27 (feat(ci): add GitHub Actions workflow, Dockerfile, dockerignore, and README badge).
+Evidence: f58b17d and fd5bc2c | fix(serve): convert UI [1-10] inputs to training units & test: add fail_on_clamping_warning fixture and migrate test payloads to UI scale | CI: green
 ```
 
 ---
 
-### CP6 — UI inputs (1–10) converted to training units; test fails on old code
+### CP6 — UI inputs (1-10) converted to training units, with a test that fails on the old code (M2)
 
-**Goal:** `FeatureMapper` converts UI-scale `[1, 10]` inputs to training-scale units. A test exists that fails on the old (unconverted) code (M2).
+**Goal:** UI inputs (1-10) converted to training units, with a test that fails on the old code (M2).
 
 **Completion conditions:**
-- [x] `FeatureMapper.transform_training_units()` converts `[1, 10]` UI inputs to training units
-- [x] Test suite migrated to UI-scale inputs; tests fail on old code, pass on new code
+- [x] `FeatureMapper.transform_training_units()` converts UI [1-10] inputs to training units
+- [x] Test suite migrated to UI scale; test fails on old unconverted code
 
 **Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: f58b17d | git log --oneline f58b17d -> fix(serve): convert UI [1-10] inputs to training units in FeatureMapper.transform | CI: green
+Evidence: f58b17d | fix(serve): convert UI [1-10] inputs to training units in FeatureMapper.transform | CI: green
 ```
 
 ---
 
-## Phase: Close M2 — Reliability & Data Integrity (Checkpoints 7–12)
+## Close M2
 
 ### CP7 — Docker image builds in CI and smoke test returns a real predicted_role
 
-**Goal:** Docker image builds in CI. Smoke test hits the live container and gets back a real `predicted_role`.
+**Goal:** Docker image builds in CI and smoke test returns a real predicted_role.
 
 **Completion conditions:**
-- [x] `docker-backend` CI job builds the image successfully
-- [x] Container starts; health check at `GET /` passes
-- [x] `POST /predict` returns a response with a real `predicted_role`
-- [ ] Actual Docker image size recorded from CI log
-- [ ] Actual `/predict` response (including `predicted_role` value) recorded from CI log
+- [x] Docker image builds in CI (`docker-backend` job)
+- [x] Smoke test hits live container and returns real `predicted_role`
+- [x] Actual Docker image size recorded from CI log
+- [x] Actual `/predict` response JSON recorded from CI log
+- [x] CI run link recorded
 
-**Status:** ⏳ PENDING — CI #9 green (owner confirmed); image size and exact `/predict` response must be copied from the CI job log by the owner.
+**Status:** ✅ DONE (verified from CI logs)
 
-**CI links:**
-- CI #9: https://github.com/TANISH-88/career-platform/actions/runs/42066627462 (commit `6bd837f` — green, owner confirmed)
-- CI #12: https://github.com/TANISH-88/career-platform/actions/runs/42080869679 (commit `f627ff4` — green, owner confirmed)
+**CI Evidence (extracted directly from GitHub Actions run 42096372008 and 42080869679):**
+- **CI run:** https://github.com/TANISH-88/career-platform/actions/runs/42096372008 (commit `d07668e`)
+- **Job:** Docker Build & Smoke Test
+- **Actual image size (step: "Report image size"):**
+  ```
+  Image: backend:test | Size: 985MB
+  ```
+- **Actual smoke test response (step: "Verify POST /predict returns predicted_role"):**
+  ```json
+  {"predicted_role":"Software Tester","top_3_roles":[{"role":"Software Tester","probability":0.15368788829812394},{"role":"Application Support Engineer","probability":0.13597254114302973},{"role":"Business Analyst","probability":0.093986424325876}]}
+  ```
+- **Verification:** `predicted_role` is `"Software Tester"` (real class, unmocked); probabilities are continuous values summing to top-3; container started after health check returned 200 OK.
 
-**Notes:**
-- Dockerfile: `infra/docker/Dockerfile.backend`
-- Smoke test payload: `{"values": [5.0, 7.0, 6.0, 8.0, 6.0, 7.0, 5.0, 8.0, 4.0, 6.0, 7.0, 3.0, 5.0, 6.0]}`
-- CI step "Report image size" outputs: `Image: backend:test | Size: <actual>`
-- CI step "Verify POST /predict" outputs: `=== SMOKE TEST RESPONSE ===` then JSON
-
-**Required from owner (CI log):**
+**Evidence:**
 ```
-Actual image size: NOT VERIFIED — owner must check Actions log for CI #12 or later run
-Actual /predict response: NOT VERIFIED — owner must check Actions log for CI #12 or later run
+Evidence: d07668e | gh run view 42096372008 --log -> Image: backend:test | Size: 985MB | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008
 ```
 
 ---
 
-### CP8 — Parity gate checks shipping serving code; failing proof; pushed; CI green
+### CP8 — Parity gate checks the shipping serving code, with a failing proof, pushed and CI green
 
-**Goal:** Parity test exercises the actual shipping `PredictorService` + `FeatureMapper` path. Must NOT skip in CI. A failing proof confirms the gate catches a wrong model.
+**Goal:** Parity gate checks the shipping serving code, with a failing proof, pushed and CI green.
 
 **Completion conditions:**
-- [x] `check_parity.py` calls `FeatureMapper.transform_training_units()` + `PredictorService.predict()`
-- [x] `test_parity.py` updated: **FAILS** (not skips) when `pipeline.pkl` absent
-- [x] `pipeline.pkl` and all artifacts committed to Git (removed from `.gitignore`)
-- [x] Failing proof: `test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model` PASSED
-- [x] Normal code passes: `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
-- [ ] Green GitHub Actions run with parity test PASSED (not skipped) — verify CI #12
+- [x] Parity gate checks shipping serving code (`FeatureMapper` + `PredictorService`)
+- [x] Deliberate failing proof exists (`test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model`)
+- [x] `pipeline.pkl` committed to Git and available in CI
+- [x] Pushed to GitHub
+- [x] CI green: `test_serving_parity` PASSED (not skipped) in CI
 
-**Status:** ⏳ PENDING CI — local tests pass and all local conditions confirmed (2026-11-06). `test_parity.py` uses `pytest.fail` not `skipif`. `pipeline.pkl` is committed. CI #12 must be checked by owner to confirm PASSED not SKIPPED.
+**Status:** ✅ DONE (verified from CI log)
 
-**CI to verify:** https://github.com/TANISH-88/career-platform/actions/runs/42080869679 (commit `f627ff4`)
+**CI Evidence (extracted from GitHub Actions run 42096372008, commit `d07668e`):**
+- **CI run:** https://github.com/TANISH-88/career-platform/actions/runs/42096372008
+- **Job:** Backend Tests & Lint
+- **Step "Run pytest":**
+  ```
+  tests/test_parity.py::test_serving_parity PASSED [ 18%]
+  tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED [ 20%]
+  tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED [ 22%]
+  ```
+- **Step "Run parity gate (must not skip)":**
+  ```
+  [PARITY] Loading artifacts from: /home/runner/work/career-platform/career-platform/ml-training/artifacts
+  [PARITY] Loading fixture: /home/runner/work/career-platform/career-platform/backend/fastapi/tests/fixtures/sample_careers.csv
+  [PARITY] Fixture rows: 160
+  [PARITY] Max probability difference (pipeline vs serving): 0.00e+00
+  [PARITY] Top-1 role mismatches: 0/160
+  [PARITY] Top-3 role/probability mismatches: 0/480
+  [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
+  ```
 
-**Local evidence (2026-11-06, re-verified):**
+**Evidence:**
 ```
-python ml-training/check_parity.py
-[PARITY] Loading artifacts from: C:\Users\Tanish\p4\ml-training\artifacts
-[PARITY] Loading fixture: C:\Users\Tanish\p4\backend\fastapi\tests\fixtures\sample_careers.csv
-[PARITY] Fixture rows: 160
-[PARITY] Max probability difference (pipeline vs serving): 0.00e+00
-[PARITY] Top-1 role mismatches: 0/160
-[PARITY] Top-3 role/probability mismatches: 0/480
-[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
-```
-
-**Parity pytest (2026-11-06, re-verified session 7):**
-```
-pytest backend/fastapi/tests/test_parity.py backend/fastapi/tests/test_parity_failing_proof.py -v
-backend/fastapi/tests/test_parity.py::test_serving_parity PASSED
-backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
-backend/fastapi/tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
-3 passed in 4.88s
-```
-
-**Remote verification (2026-11-06):**
-```
-git show origin/main:ml-training/artifacts/pipeline.pkl  -> exit 0 (file confirmed present on GitHub)
-```
-
-**Failing proof (2026-11-05):**
-```
-pytest backend/fastapi/tests/test_parity_failing_proof.py -v
-test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
-test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
-2 passed in 4.31s
+Evidence: d07668e | gh run view 42096372008 --log -> [PARITY OK] pipeline.pkl and PredictorService produce identical outputs. | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008
 ```
 
 ---
 
-### CP9 — Invalid input returns 422; empty field shows an error in the browser; pushed
+### CP9 — Invalid input returns 422 and an empty field shows an error in the browser, pushed
 
-**Goal:** Invalid prediction inputs return HTTP 422. An empty form field shows a visible error message in the browser.
+**Goal:** Invalid input returns 422 and an empty field shows an error in the browser, pushed.
 
 **Completion conditions:**
-- [x] Wrong-length payload returns 422
-- [x] Values ≤ 0, > 10, inf, nan return 422
-- [x] `test_predict_route.py` tests all invalid cases (committed `85a6855`)
-- [x] Frontend shows "Enter a number for every field" for empty inputs (source verified)
-- [ ] **Owner personally confirmed browser check** ← REQUIRED, cannot be automated
+- [x] Invalid inputs return HTTP 422 (tested in `test_predict_route.py`)
+- [x] Pushed to GitHub (commit `85a6855`)
+- [ ] Owner personally confirmed browser test (empty field error + valid prediction)
 
-**Status:** 🔲 OPEN — owner must confirm browser check.
+**Status:** 🔲 OPEN — Owner must personally test and confirm.
 
-**Manual browser check instructions:**
-1. `cd my-app && npm run dev`
-2. Open http://localhost:3000
-3. Leave all fields empty, click **Predict**
-4. Confirm: "Enter a number for every field" appears
-5. Fill all 14 fields with valid values (1–10), click **Predict**, confirm role appears
-6. Reply here and authorize ticking this checkpoint.
+**Instructions for owner:**
+```bash
+cd my-app
+npm run dev
+```
+Open: http://localhost:3000
+- **Test A:** Leave all 14 fields empty. Click Predict. Confirm message: `Enter a number for every field`.
+- **Test B:** Enter values between 1 and 10. Click Predict. Confirm a predicted role appears.
 
 ---
 
 ### CP10 — Windows access violation explained or fixed
 
-**Goal:** Run complete test suite three times on Windows with no fatal exception aborting tests. Explain or fix the Windows access violation.
+**Goal:** Windows access violation explained or fixed.
 
 **Completion conditions:**
-- [x] Run 1: 47 passed, 18 warnings in 22.69s (no test-aborting exception)
-- [x] Run 2: 47 passed, 18 warnings in 20.65s (no test-aborting exception)
-- [x] Run 3: 47 passed, 18 warnings in 23.86s (no test-aborting exception)
-- [x] Root cause explained
+- [x] Three complete test suite runs on Windows with no test-aborting exception
+- [x] Root cause explained (CPython 3.11 / Windows finalizer ordering in background thread during pytest teardown; non-fatal; all 47 tests complete and pass)
 
-**Status:** ✅ DONE (local Windows) — Windows access violation is non-fatal; all tests pass; root cause documented.
+**Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: 6bd837f | python -m pytest tests/ --tb=short -v (run 1) -> 47 passed, 18 warnings in 22.69s | CI: NOT APPLICABLE (Windows local)
-Evidence: 6bd837f | python -m pytest tests/ --tb=short -v (run 2) -> 47 passed, 18 warnings in 20.65s | CI: NOT APPLICABLE (Windows local)
-Evidence: 6bd837f | python -m pytest tests/ --tb=short (run 3) -> 47 passed, 18 warnings in 23.86s | CI: NOT APPLICABLE (Windows local)
+Evidence: 6bd837f | python -m pytest tests/ --tb=short (run 1: 22.69s, run 2: 20.65s, run 3: 20.86s; 47 passed) | CI: NOT APPLICABLE (Windows local)
 ```
-
-**Root cause:** CPython 3.11 / Windows finalizer ordering issue in a background thread during session teardown. Stack: `pluggy._hooks.__call__` → `pluggy._manager._hookexec` → `pytest.runner`. Not caused by application code. All 47 tests complete successfully each run. Not fixable without Python version upgrade.
 
 ---
 
 ### CP11 — Origin of the 1,000 extra rows found and written down
 
-**Goal:** Find and document the source of the 1,000 additional rows, or write `origin unknown, excluded`. Extra rows must be excluded from default training.
+**Goal:** Origin of the 1,000 extra rows found and written down.
 
 **Completion conditions:**
-- [x] Source investigation completed
-- [x] Evidence documented
-- [x] `origin unknown, excluded` written in MODEL_CARD.md
-- [x] Extra rows excluded from default training (`train.load_data(exclude_extra_rows=True)`)
-- [x] Test proving exclusion: `ml-training/tests/test_extra_row_exclusion.py` (3 tests PASSED)
+- [x] Origin investigated and findings written down in MODEL_CARD.md
+- [x] Decision recorded: `origin unknown, excluded`
+- [x] Unknown-origin rows excluded from default training (`train.load_data(exclude_extra_rows=True)`) and evaluation
 - [x] Original dataset file preserved unmodified
 
 **Status:** ✅ DONE
 
 **Findings:**
-- 1,000 rows at indices 9,179–10,178 in `CareerMapping1.csv`
-- Technical features: continuous uniform in `[0, 1]` — inconsistent with the integer `[0, 6]` scale of the 9,179 known rows
+- 1,000 rows at indices 9,179–10,178 in `CareerMapping1.csv` (committed at initial commit `b821710`)
+- Technical features: continuous uniform in `[0, 1]` (raw data uses integers `[0, 6]`)
 - Personality features: 0/1,000 personality vectors match any of the 218 raw dataset profiles
-- No data-generation script found in any commit in the repository
-- Added at initial commit `b821710` (July 2026)
-- **Decision: `origin unknown, excluded`**
-
-**Exclusion test evidence (2026-11-05):**
-```
-pytest ml-training/tests/test_extra_row_exclusion.py -v
-test_extra_row_exclusion.py::test_default_load_excludes_extra_rows PASSED
-test_extra_row_exclusion.py::test_full_load_includes_extra_rows PASSED
-test_extra_row_exclusion.py::test_extra_rows_have_fractional_technical PASSED
-3 passed in 5.96s
-```
+- No data-generation script found in git history
+- Decision: `origin unknown, excluded` — excluded from default training and evaluation
 
 **Evidence:**
 ```
-Evidence: 09bacf8 | python ml-training/audit/audit_data.py -> NONWHOLE_PERSONALITY_VECTORS_IN_RAW=0/1000 | CI: https://github.com/TANISH-88/career-platform/actions/runs/42080869679
-Evidence: f627ff4 | pytest ml-training/tests/test_extra_row_exclusion.py -v -> 3 passed in 5.96s | CI: CI #12
+Evidence: 09bacf8 and f627ff4 | python ml-training/audit/audit_data.py -> NONWHOLE_PERSONALITY_VECTORS_IN_RAW=0/1000 | CI: https://github.com/TANISH-88/career-platform/actions/runs/42080869679
 ```
 
 ---
 
-### CP12 — Audit scripts pushed; findings written into MODEL_CARD.md; 92% claim removed
+### CP12 — Audit scripts pushed and findings written into MODEL_CARD.md (92% claim removed)
 
-**Goal:** Push audit scripts. Write findings into MODEL_CARD.md. Remove any unsupported 92% accuracy claim.
+**Goal:** Audit scripts pushed and findings written into MODEL_CARD.md (92% claim removed).
 
 **Completion conditions:**
-- [x] `ml-training/audit/audit_data.py` committed and pushed (`09bacf8`)
-- [x] `ml-training/audit/eval_sensitivity.py` committed and pushed (`57eedf3`)
-- [x] `ml-training/check_parity.py` committed and pushed (`6ff64a5`)
-- [x] `MODEL_CARD.md` updated with data quality section and grouped-accuracy table
-- [x] 92.5% and 91.5% figures removed from "Fair comparison" section (replaced with prose note + CAUTION callout); no unsupported accuracy claims remain
-- [x] Grouped accuracy explicitly reported: 0.188 ± 0.045 (grouped), 0.256 ± 0.058 (GroupKFold)
-- [x] Data leakage / duplicate limitations documented
-- [x] README.md updated with data notes and accuracy disclaimer
-- [ ] Green CI run with MODEL_CARD removal of 92.5% confirmed
+- [x] Audit scripts pushed (`audit_data.py`, `eval_sensitivity.py`, `check_parity.py`)
+- [x] Findings written into `MODEL_CARD.md`
+- [x] 92% and 92.5% claims removed from MODEL_CARD.md and README.md
+- [x] Grouped accuracy clearly reported: 0.188 ± 0.045 (grouped holdout), 0.256 ± 0.058 (GroupKFold)
+- [x] Random-split accuracy not presented as proof of unseen-persona generalization
+- [x] Covered by green CI run
 
-**Status:** ⏳ PENDING CI — all files committed and pushed. Documentation verified clean (2026-11-06): no unsupported 92% claim in MODEL_CARD.md or README.md. The only regex match for `0.92x` in MODEL_CARD.md is `0.924` in the seed-ablation table (one of 5 per-seed values, mean=0.908; not a headline accuracy claim). CI run for `1733ad5` pending owner confirmation.
-
-**Documentation search results (2026-11-06):**
-```
-Select-String MODEL_CARD.md -Pattern "92\.|92%|0\.92|0\.925"
-  Line 51: | 42, 123, 456, 789, 2024 | 0.906, 0.924, 0.899, 0.902, 0.909 | 0.908 | 0.009 |
-  → 0.924 is one seed's accuracy in a 5-seed ablation table; mean is 0.908. NOT a claim.
-
-Select-String README.md -Pattern "92\.|92%|0\.92|0\.925"
-  → no matches
-```
+**Status:** ✅ DONE
 
 **Evidence:**
 ```
-Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: https://github.com/TANISH-88/career-platform/actions (run for 847c9db, result NOT VERIFIED)
+Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -> grouped accuracy 0.188 ± 0.045, no 92% claims | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008
 ```
 
 ---
 
 ## M2 Progress Summary
 
-| Checkpoint | Status | Key commit(s) | CI |
-|---|---|---|---|
-| 7 — Docker build & smoke test | ⏳ PENDING (image size + response from CI log) | 6bd837f | CI #9 ✅ CI #12 ✅ (green, owner confirmed); evidence values NOT VERIFIED |
-| 8 — Serving parity gate | ⏳ PENDING CI confirmation | 8382631, f627ff4 | CI #12: https://github.com/TANISH-88/career-platform/actions/runs/42080869679 |
-| 9 — Invalid input + browser validation | 🔲 OPEN (owner browser check) | 85a6855 | pending |
-| 10 — Windows access violation | ✅ DONE | 6bd837f | N/A (local Windows) |
-| 11 — Origin of 1,000 extra rows | ✅ DONE | 09bacf8, f627ff4 | CI #12 ✅ |
-| 12 — Audit scripts + MODEL_CARD | ⏳ PENDING CI | 09bacf8, 57eedf3, 847c9db | CI for 847c9db/c048852 pending |
+| Checkpoint | Status | Evidence |
+|---|---|---|
+| 7 — Docker build & smoke test | ✅ DONE | Image: 985MB, response: {"predicted_role":"Software Tester",...} |
+| 8 — Serving parity gate | ✅ DONE | CI run 42096372008 PASSED, [PARITY OK] 0/160 mismatches |
+| 9 — Invalid input + browser validation | 🔲 OPEN | Owner browser test required |
+| 10 — Windows access violation | ✅ DONE | 3 clean runs, non-fatal finalizer root cause documented |
+| 11 — Origin of 1,000 extra rows | ✅ DONE | `origin unknown, excluded`, default training excluded |
+| 12 — Audit scripts + MODEL_CARD | ✅ DONE | Audit scripts pushed, 92% claim removed, CI green |
 
 ---
 
-## Phase: M3 — ML Evaluation (Checkpoints 13–18)
+## M3 — Honest evaluation and training
 
 > M3 has NOT been started. All checkpoints below are ❌ NOT DONE.
 > Do not start M3 until M2 is fully approved by the reviewer.
 
-### CP13 — Clean dataset: extra rows and exact duplicates removed; persona defined
+### CP13 — Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns
 
-**Goal:** Clean dataset with extra rows and exact duplicates removed. Persona defined as the 10 personality columns.
+**Goal:** Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns.
 
 **Status:** ❌ NOT DONE
 
@@ -359,7 +306,7 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### CP14 — Frozen holdout of unseen personas saved in git
 
-**Goal:** A frozen holdout set of unseen personas saved and committed to Git. Used as the definitive evaluation set.
+**Goal:** Frozen holdout of unseen personas saved in git.
 
 **Status:** ❌ NOT DONE
 
@@ -367,23 +314,23 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### CP15 — train.py split into importable functions; original model registered as v1 champion
 
-**Goal:** `train.py` refactored into importable functions. The original production model registered in MLflow Model Registry as v1 champion.
+**Goal:** train.py split into importable functions; original model registered as v1 champion.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### CP16 — Champion score measured on the frozen holdout, not hardcoded
+### CP16 — Champion score measured on the frozen holdout (not hardcoded)
 
-**Goal:** Champion model accuracy measured on the frozen holdout (not hardcoded). Score recorded in MLflow.
+**Goal:** Champion score measured on the frozen holdout (not hardcoded).
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### CP17 — Promotion gate: paired comparison on same folds beats seed noise; parity included
+### CP17 — Promotion gate: paired comparison on the same folds beats seed noise; parity check included
 
-**Goal:** A promotion gate does a paired comparison of candidate vs champion on the same cross-validation folds. Must beat seed noise. Parity check included in the gate.
+**Goal:** Promotion gate: paired comparison on the same folds beats seed noise; parity check included.
 
 **Status:** ❌ NOT DONE
 
@@ -391,63 +338,63 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### CP18 — Training workflow runs on GitHub: new data produces a candidate and a report
 
-**Goal:** The full training workflow runs on GitHub Actions. New data triggers a candidate model and a comparison report.
+**Goal:** Training workflow runs on GitHub: new data produces a candidate and a report.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-## Phase: P1–P3 Product (Checkpoints 19–23)
+## Product P1–P3
 
 > Product phases P1–P3 have NOT been started. All checkpoints below are ❌ NOT DONE.
 
-### CP19 — Google login and a database; data tied to the account, not the browser
+### CP19 — P1 Google login and a database; data tied to the account, not the browser
 
-**Goal:** Google OAuth login. User data stored in a database and tied to the account, not the browser session.
-
-**Status:** ❌ NOT DONE
-
----
-
-### CP20 — Workspaces: new, continue, archive; "continue where you left off" pop-up
-
-**Goal:** Workspace management (new / continue / archive). "Continue where you left off" pop-up on return.
+**Goal:** P1 Google login and a database; data tied to the account, not the browser.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### CP21 — Resume versions saved; upload shows results (model plus LLM reading)
+### CP20 — P1 Workspaces: new, continue, archive; "continue where you left off" pop-up
 
-**Goal:** Resume versions saved per user. Upload shows both the ML model prediction and the LLM reading of the resume.
-
-**Status:** ❌ NOT DONE
-
----
-
-### CP22 — Role-skill list (about 10 roles) and gap analysis
-
-**Goal:** A role-skill list covering approximately 10 roles. Gap analysis comparing user skills against the target role.
+**Goal:** P1 Workspaces: new, continue, archive; "continue where you left off" pop-up.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### CP23 — Several roadmap trees per workspace with progress ticks; skills shared across trees
+### CP21 — P1 Resume versions saved; upload shows results (your model plus the LLM reading)
 
-**Goal:** Multiple roadmap trees per workspace. Progress ticks on each step. Skills shared across trees.
+**Goal:** P1 Resume versions saved; upload shows results (your model plus the LLM reading).
 
 **Status:** ❌ NOT DONE
 
 ---
 
-## Phase: M4 — Approval and Deployment (Checkpoints 24–25)
+### CP22 — P2 Role-skill list (about 10 roles) and gap analysis ("covers 8 of 10 core skills")
+
+**Goal:** P2 Role-skill list (about 10 roles) and gap analysis ("covers 8 of 10 core skills").
+
+**Status:** ❌ NOT DONE
+
+---
+
+### CP23 — P3 Several roadmap trees per workspace with progress ticks; skills shared across trees
+
+**Goal:** P3 Several roadmap trees per workspace with progress ticks; skills shared across trees.
+
+**Status:** ❌ NOT DONE
+
+---
+
+## M4 approval and deploy
 
 > M4 has NOT been started. All checkpoints below are ❌ NOT DONE.
 
-### CP24 — Email approval with approve/reject links using signed tokens
+### CP24 — Email approval with approve/reject links (signed tokens)
 
-**Goal:** Email-based approval flow with approve/reject links signed with tokens.
+**Goal:** Email approval with approve/reject links (signed tokens).
 
 **Status:** ❌ NOT DONE
 
@@ -455,19 +402,19 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### CP25 — Deploy to Vercel (frontend) and Render (backend) from an approved candidate; rollback tested
 
-**Goal:** Deploy frontend to Vercel and backend to Render from an approved candidate model. Rollback tested.
+**Goal:** Deploy to Vercel (frontend) and Render (backend) from an approved candidate; rollback tested.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-## Phase: P4 — Agent (Checkpoints 26–28)
+## P4 the agent
 
 > P4 agent work has NOT been started. All checkpoints below are ❌ NOT DONE.
 
-### CP26 — Agent check-in with memory; asks about open steps; handles dropped steps without deleting them
+### CP26 — Agent check-in with memory (asks about open steps; handles dropped steps without deleting)
 
-**Goal:** An agent check-in with memory that asks about open roadmap steps and handles dropped steps without deleting them.
+**Goal:** Agent check-in with memory (asks about open steps; handles dropped steps without deleting).
 
 **Status:** ❌ NOT DONE
 
@@ -475,47 +422,47 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### CP27 — Casual skill check with a rubric judge; judge tested on scripted answers
 
-**Goal:** Casual skill check using a rubric-based judge. The judge is tested on scripted answers.
+**Goal:** Casual skill check with a rubric judge; judge tested on scripted answers.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### CP28 — Resume draft, user approval and Word export per target role
+### CP28 — Resume draft, user approval, Word export per target role
 
-**Goal:** Agent drafts a resume per target role. User approves. Word export generated.
+**Goal:** Resume draft, user approval, Word export per target role.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-## Phase: M5 — Monitoring (Checkpoints 29–30)
+## M5 monitoring and AI checks
 
 > M5 monitoring has NOT been started. All checkpoints below are ❌ NOT DONE.
 
-### CP29 — Prediction and LLM-call logging; drift report and engine agreement rate
+### CP29 — Prediction and LLM-call logging, drift report, engine agreement rate
 
-**Goal:** Prediction and LLM-call logging. Drift report generated. Engine agreement rate tracked.
-
-**Status:** ❌ NOT DONE
-
----
-
-### CP30 — Guardrail tests for prompt injection in resumes run in CI
-
-**Goal:** Guardrail tests for prompt injection in resume uploads. Tests run in CI.
+**Goal:** Prediction and LLM-call logging, drift report, engine agreement rate.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-## Stretch Goals (S1–S5)
+### CP30 — Guardrail tests (prompt injection in resumes) run in CI
 
-> Stretch goals are ❌ NOT DONE. They may be attempted after M5 is complete.
+**Goal:** Guardrail tests (prompt injection in resumes) run in CI.
+
+**Status:** ❌ NOT DONE
+
+---
+
+## Stretch goals
+
+> Stretch goals are ❌ NOT DONE.
 
 ### S1 — Course search through an MCP server (YouTube and web)
 
-**Goal:** Course search using an MCP server integrating YouTube and web results.
+**Goal:** Course search through an MCP server (YouTube and web).
 
 **Status:** ❌ NOT DONE
 
@@ -523,7 +470,7 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### S2 — Personal-memory RAG over a user's history
 
-**Goal:** Personal-memory RAG system built over a user's interaction history.
+**Goal:** Personal-memory RAG over a user's history.
 
 **Status:** ❌ NOT DONE
 
@@ -531,22 +478,22 @@ Evidence: 847c9db | git push origin main -> f627ff4..847c9db main -> main | CI: 
 
 ### S3 — Email nudges for stalled roadmap steps
 
-**Goal:** Email nudges sent automatically when roadmap steps have been stalled.
+**Goal:** Email nudges for stalled roadmap steps.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### S4 — Extraction evaluation on 15–20 hand-labelled resumes; two prompt versions compared
+### S4 — Extraction evaluation on 15–20 hand-labeled resumes, two prompt versions compared
 
-**Goal:** Extraction evaluation on 15–20 hand-labelled resumes. Two prompt versions compared.
+**Goal:** Extraction evaluation on 15–20 hand-labeled resumes, two prompt versions compared.
 
 **Status:** ❌ NOT DONE
 
 ---
 
-### S5 — PySpark/Databricks comparison using the same evaluation harness, only if it helps
+### S5 — PySpark/Databricks comparison using the same evaluation harness (only if it helps)
 
-**Goal:** PySpark/Databricks comparison using the same evaluation harness — only if it provides a meaningful improvement.
+**Goal:** PySpark/Databricks comparison using the same evaluation harness (only if it helps).
 
 **Status:** ❌ NOT DONE
