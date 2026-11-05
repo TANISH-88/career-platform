@@ -1,11 +1,11 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 11/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 12/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): CP7 ✅, CP8 ✅, CP10 ✅, CP11 ✅, CP12 ✅ (5 verified, CP9 🔲 OPEN) | M3–M5, P1–P4, S1–S5: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3–M5, P1–P4, S1–S5: 0 ✅
 >
-> **Note on M2 closure:** M2 is NOT declared complete because CP9 requires owner browser verification. M3 has NOT been started.
+> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are now genuinely verified. M2 is ready for reviewer approval. M3 has NOT been started.
 
 ---
 
@@ -199,18 +199,14 @@ Evidence: d07668e | gh run view 42096372008 --log -> [PARITY OK] pipeline.pkl an
 **Completion conditions:**
 - [x] Invalid inputs return HTTP 422 (tested in `test_predict_route.py`)
 - [x] Pushed to GitHub (commit `85a6855`)
-- [ ] Owner personally confirmed browser test (empty field error + valid prediction)
+- [x] Owner personally confirmed browser test (empty field error + valid prediction)
 
-**Status:** 🔲 OPEN — Owner must personally test and confirm.
+**Status:** ✅ DONE (personally confirmed by owner)
 
-**Instructions for owner:**
-```bash
-cd my-app
-npm run dev
+**Evidence:**
 ```
-Open: http://localhost:3000
-- **Test A:** Leave all 14 fields empty. Click Predict. Confirm message: `Enter a number for every field`.
-- **Test B:** Enter values between 1 and 10. Click Predict. Confirm a predicted role appears.
+Evidence: 85a6855 | Owner personally tested and confirmed both Test A (empty fields -> "Enter a number for every field") and Test B (valid fields 1-10 -> predicted role returned) in browser at http://localhost:3000 on 2026-11-06.
+```
 
 ---
 
@@ -284,7 +280,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 |---|---|---|
 | 7 — Docker build & smoke test | ✅ DONE | Image: 985MB, response: {"predicted_role":"Software Tester",...} |
 | 8 — Serving parity gate | ✅ DONE | CI run 42096372008 PASSED, [PARITY OK] 0/160 mismatches |
-| 9 — Invalid input + browser validation | 🔲 OPEN | Owner browser test required |
+| 9 — Invalid input + browser validation | ✅ DONE | Owner confirmed Test A & Test B passed in browser (http://localhost:3000) |
 | 10 — Windows access violation | ✅ DONE | 3 clean runs, non-fatal finalizer root cause documented |
 | 11 — Origin of 1,000 extra rows | ✅ DONE | `origin unknown, excluded`, default training excluded |
 | 12 — Audit scripts + MODEL_CARD | ✅ DONE | Audit scripts pushed, 92% claim removed, CI green |
