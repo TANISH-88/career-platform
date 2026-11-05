@@ -1,4 +1,3 @@
-/frf.pkl
-/scaler.pkl
-/pca.pkl
-/pipeline.pkl
+# Model artifacts are committed to Git to enable the CI parity gate.
+# They are excluded from DVC tracking; use git to manage them.
+# If you add new large binary artifacts, reconsider adding them to DVC instead.
