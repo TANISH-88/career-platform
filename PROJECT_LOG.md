@@ -70,7 +70,7 @@ python ml-training/check_parity.py
 [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
 ```
 
-**Evidence:** NOT YET COMMITTED | CI: PENDING PUSH
+**Evidence:** 8382631 | git push origin main -> 6bd837f..8382631  main -> main | CI: https://github.com/TANISH-88/career-platform/actions (run triggered by 8382631, result pending)
 
 ---
 
