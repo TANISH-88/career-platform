@@ -1,3 +1,4 @@
+import pathlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -12,14 +13,19 @@ from app.services.model_registry import ModelRegistry
 from app.services.predictor import PredictorService
 from app.services.resume_parser import ResumeParser
 
+# Resolve models directory relative to this file so the app works regardless
+# of the working directory (e.g. when tests run from the repo root).
+_HERE = pathlib.Path(__file__).resolve().parent
+_MODELS_DIR = str(_HERE.parent / "models")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: load models and register MLflow baseline
-    app.state.feature_mapper = FeatureMapper()
-    app.state.predictor = PredictorService()
+    app.state.feature_mapper = FeatureMapper(models_dir=_MODELS_DIR)
+    app.state.predictor = PredictorService(models_dir=_MODELS_DIR)
     app.state.resume_parser = ResumeParser()
-    ModelRegistry().register_baseline_if_needed()
+    ModelRegistry(models_dir=_MODELS_DIR).register_baseline_if_needed()
     yield
     # Shutdown: nothing to clean up in Phase 1
 

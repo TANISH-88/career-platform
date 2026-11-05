@@ -26,12 +26,18 @@
 
 ## Evaluation on Held-Out Test Set (seed 42 stratified split, 2,036 rows)
 
+> [!IMPORTANT]
+> The test set is a **random stratified split of the same dataset** used for training.
+> Due to severe exact-duplicate contamination (see Data Quality section below),
+> random-split accuracy does **not** represent generalisation to unseen individuals.
+> Do not interpret these numbers as proof of real-world performance.
+
 | Metric | Value |
 |---|---|
-| Top-1 accuracy | **0.906** |
-| 5-seed ablation mean | 0.907 ± 0.008 |
+| Top-1 accuracy (random split, seed 42) | **0.906** |
+| 5-seed mean (random split) | 0.907 ± 0.008 |
 
-### 5-Seed Ablation Summary (train-only preprocessing, stratified split)
+### 5-Seed Ablation (train-only preprocessing, stratified split)
 
 | Seeds | Per-seed accuracy | Mean | Std |
 |---|---|---|---|
@@ -40,6 +46,58 @@
 The ablation also compared fitting scaler/PCA on all data (leakage) vs. train only.
 Mean difference between conditions: < 0.002 — within one standard deviation of seed
 noise. **Leakage is not a detectable effect on this dataset.**
+
+## Data Quality and Generalisation Warning
+
+### Exact duplicates
+
+The raw dataset (`CareerMap-...csv`, 9,179 rows) contains **1,073 distinct rows** that
+appear more than once, accounting for **6,063 extra occurrences**.
+When training on this data with a random split, identical rows appear in both train and
+test sets, inflating accuracy artificially.
+
+### Unknown-origin extra rows
+
+`CareerMapping1.csv` (the training source, 10,179 rows) contains **1,000 additional rows**
+not present in the raw dataset. These rows:
+
+- Have **fractional technical features** in `[0, 1]` (raw data uses integers in `[0, 6]`)
+- Have **personality profiles not matching any raw-dataset vector** (0/1,000 match)
+- Cover the **full `[0, 1]` range** uniformly, unlike the skewed raw distributions
+- Were appended as rows 9,179–10,178 in `CareerMapping1.csv` at the initial commit
+
+**Origin: unknown.** The generation mechanism has not been identified. These rows are
+excluded from generalisation analysis. Training currently uses all 10,179 rows; this
+is a known limitation.
+
+> `origin unknown, excluded` from grouped-accuracy evaluation (see below).
+
+### Grouped-by-personality accuracy (unseen-persona test)
+
+When the model is evaluated on personality profiles **not seen during training**
+(grouped cross-validation), accuracy drops dramatically.
+
+Reproduce with: `python ml-training/audit/eval_sensitivity.py`
+
+| Evaluation method | Accuracy | Macro-F1 |
+|---|---|---|
+| Random stratified split (5 seeds) | **0.902 ± 0.004** | 0.902 ± 0.005 |
+| Grouped by personality vector (5 seeds) | **0.188 ± 0.045** | 0.149 ± 0.019 |
+| GroupKFold persona generalisation (5 folds) | **0.256 ± 0.058** | — |
+| Raw rows only (random split, 5 seeds) | 0.995 ± 0.003 | — |
+| Raw-trained, extra-rows test (5 seeds) | 0.056 ± 0.003 | — |
+| Majority-class baseline | 0.113 | — |
+
+> [!WARNING]
+> The random-split accuracy of **0.902** reflects test rows that largely share
+> personality vectors with training rows (1,411 / 2,036 test rows, ~69%, have an
+> exact personality vector twin in training). On those in-training-vector rows,
+> accuracy is ~0.999; on out-of-training-vector rows it falls to ~0.69.
+> Grouped accuracy of **0.188** is a more realistic upper bound for new individuals.
+> The GroupKFold result of **0.256** (barely above majority-class baseline of 0.113)
+> corroborates this.
+
+**Random-split accuracy must not be cited as proof of generalisation.**
 
 ## Comparison with Previous Model (pre-M1, commit `2d999ed`)
 
