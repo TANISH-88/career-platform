@@ -10,6 +10,24 @@
 
 ---
 
+### Entry 12 — 2026-11-06 | Antigravity Agent (M2 session 10 — CP9 Owner Verification & M2 Complete)
+
+- **Checkpoints:** 9 (Foundation CP1–CP6: 6 ✅ | Close M2 CP7–CP12: 6 ✅ | Total: 12/30 ✅)
+- **Status:** M2 COMPLETE — All 6 M2 checkpoints genuinely verified. Total verified progress: 12/30. Awaiting reviewer approval before starting M3.
+- **Task:** Owner personally performed the manual browser tests for CP9 at http://localhost:3000 and confirmed: "Both tests passed". Test A verified that leaving all 14 fields empty displays "Enter a number for every field". Test B verified that entering valid values between 1 and 10 submits to the backend and displays the predicted role. CP9 ticked. All 6 M2 checkpoints (7–12) are now complete with full required evidence.
+- **Files changed:**
+  - `CHECKPOINTS.md` — ticked CP9; updated progress count to 12/30; updated M2 Progress Summary table.
+  - `PROJECT_LOG.md` — this entry.
+- **Commands run and exact last line of output:**
+  - `Invoke-RestMethod -Uri "http://127.0.0.1:8000/predict" ...` → `Software Tester` (confirmed backend live)
+  - Owner manual browser check at http://localhost:3000 → "Both tests passed"
+- **Evidence:**
+  - `Evidence: 85a6855 | Owner confirmed: "Both tests passed" for CP9 browser tests in http://localhost:3000 | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008`
+- **Open issues / NOT VERIFIED:** None for M2.
+- **Next step:** Awaiting reviewer evaluation and explicit approval to close M2. DO NOT START M3.
+
+---
+
 ### Entry 11 — 2026-11-06 | Antigravity Agent (M2 session 9 — Frontend Error Handling Fix)
 
 - **Checkpoints:** 9
