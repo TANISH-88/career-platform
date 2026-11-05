@@ -74,7 +74,12 @@ Extra rows personality range: [0.00027, 0.9999] (full range, raw is narrower/ske
 [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
 ```
 
-**Evidence:** NOT COMMITTED YET | CI: PENDING
+**Windows test suite (post-push, session 2):**
+- Run 1: `python -m pytest tests/ -v --tb=short` → `47 passed, 18 warnings in 22.69s`
+- Run 2: `python -m pytest tests/ -v --tb=short` → `47 passed, 18 warnings in 20.65s`
+- Run 3: `python -m pytest tests/ --tb=short -q` → `47 passed, 18 warnings in 21.72s`
+
+**Evidence:** 6a02864 | git push origin main -> 57eedf3..6a02864  main -> main | CI: https://github.com/TANISH-88/career-platform/actions (run triggered by 6a02864, result pending)
 
 ---
 
@@ -154,3 +159,4 @@ Frontend `page.js` shows "Enter a number for every field" for empty inputs.
 Evidence from CI: required from actual Actions run. The workflow was pushed at `33eee27` and updated at `57eedf3`. Local inspection confirms the workflow is structurally correct.
 
 **Evidence:** 33eee27 | git log origin/main -> 57eedf3 audit: add raw extra and persona generalization analysis | CI: NOT LOCALLY VERIFIABLE
+
