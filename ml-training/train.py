@@ -120,11 +120,36 @@ def compute_md5(path: str) -> str:
     return h.hexdigest()
 
 
-def load_data(path: str) -> pd.DataFrame:
+def load_data(path: str, exclude_extra_rows: bool = True) -> pd.DataFrame:
+    """Load career mapping CSV, excluding unknown-origin extra rows by default.
+
+    The dataset (CareerMapping1.csv, 10,179 rows) contains 1,000 rows appended
+    at indices 9,179–10,178 whose origin is unknown.  These rows have fractional
+    technical feature values (continuous in [0, 1]) whereas the 9,179 raw rows
+    have integer technical values in [0, 6].  Because their origin cannot be
+    established they are excluded from default training and evaluation.
+
+    Pass ``exclude_extra_rows=False`` only when explicitly investigating the
+    extra rows.  The raw dataset file is never modified.
+    """
     df = pd.read_csv(path)
     # Drop the unnamed index column that the notebook also drops
     if df.columns[0].startswith("Unnamed"):
         df = df.drop(df.columns[0], axis=1)
+    if exclude_extra_rows:
+        # Identify extra rows: technical features are fractional (not whole numbers)
+        # Raw rows always have integer-valued technical features (0–6).
+        def _all_integer(row: pd.Series) -> bool:
+            return all(float(v) == int(float(v)) for v in row)
+        mask_raw = df[TECHNICAL_FEATURES].apply(_all_integer, axis=1)
+        n_excluded = int((~mask_raw).sum())
+        if n_excluded > 0:
+            print(
+                f"[data] Excluded {n_excluded} unknown-origin extra rows "
+                f"(fractional technical features; origin unknown, excluded). "
+                f"Remaining: {mask_raw.sum()} rows."
+            )
+        df = df[mask_raw].reset_index(drop=True)
     return df
 
 
@@ -212,11 +237,14 @@ def train() -> None:
 
         # -- Data loading & validation -------------------------------------
         print(f"[1/6] Loading data from {data_path} ...")
-        df = load_data(str(data_path))
+        # exclude_extra_rows=True (default): 1,000 unknown-origin rows are excluded.
+        # origin unknown, excluded — see MODEL_CARD.md § Data Quality.
+        df = load_data(str(data_path), exclude_extra_rows=True)
         validate_data(df)
         data_md5 = compute_md5(str(data_path))
         mlflow.set_tag("data_md5", data_md5)
         mlflow.set_tag("data_rows", str(len(df)))
+        mlflow.set_tag("extra_rows_excluded", "true")
         print(f"       {len(df)} rows | md5={data_md5}")
 
         # -- Fixed train/test split (stratified) ---------------------------
