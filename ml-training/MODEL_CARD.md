@@ -6,10 +6,16 @@
 |---|---|
 | Source file | `data/CareerMapping1.csv` |
 | MD5 (at training time) | `7192e48953b32a0448b020198591567b` |
-| Total rows | 10,179 |
+| Total rows in file | 10,179 |
+| Raw rows used for training | **9,179** (1,000 unknown-origin extra rows excluded by default) |
 | Roles (classes) | 16 |
-| Train rows (80%) | 8,143 |
-| Test rows (20%) | 2,036 |
+| Train rows (80% of 9,179) | 7,343 |
+| Test rows (20% of 9,179) | 1,836 |
+
+> [!NOTE]
+> The 1,000 extra rows at indices 9,179–10,178 are **excluded by default** from training
+> and evaluation (`train.load_data(exclude_extra_rows=True)`). Their origin is unknown.
+> The original dataset file is preserved unmodified.
 
 ## Training Configuration
 
@@ -24,10 +30,11 @@
 | MLflow experiment | `career-prediction` |
 | Registered model | `career-rf` (full `sklearn.Pipeline`) |
 
-## Evaluation on Held-Out Test Set (seed 42 stratified split, 2,036 rows)
+## Evaluation on Held-Out Test Set (seed 42 stratified split, 1,836 rows)
 
 > [!IMPORTANT]
-> The test set is a **random stratified split of the same dataset** used for training.
+> The test set is a **random stratified split of the same 9,179 raw rows** used for training
+> (the 1,000 unknown-origin extra rows are excluded by default).
 > Due to severe exact-duplicate contamination (see Data Quality section below),
 > random-split accuracy does **not** represent generalisation to unseen individuals.
 > Do not interpret these numbers as proof of real-world performance.
@@ -66,9 +73,17 @@ not present in the raw dataset. These rows:
 - Cover the **full `[0, 1]` range** uniformly, unlike the skewed raw distributions
 - Were appended as rows 9,179–10,178 in `CareerMapping1.csv` at the initial commit
 
-**Origin: unknown.** The generation mechanism has not been identified. These rows are
-excluded from generalisation analysis. Training currently uses all 10,179 rows; this
-is a known limitation.
+**Origin: unknown.** The generation mechanism has not been identified.
+
+**Decision: `origin unknown, excluded`** — these rows are excluded from default training
+and evaluation by `train.load_data(exclude_extra_rows=True)` (the default).
+The original dataset file is never modified. Pass `exclude_extra_rows=False` only
+when explicitly investigating these rows.
+
+A reproducible test proves the exclusion:
+```
+python -m pytest ml-training/tests/test_extra_row_exclusion.py -v
+```
 
 > `origin unknown, excluded` from grouped-accuracy evaluation (see below).
 

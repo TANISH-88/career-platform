@@ -41,6 +41,14 @@ jobs:
         run: |
           pytest tests/ -v
 
+      - name: Run extra-row exclusion tests
+        run: |
+          pytest ml-training/tests/test_extra_row_exclusion.py -v
+
+      - name: Run parity gate (must not skip)
+        run: |
+          python ml-training/check_parity.py
+
   frontend:
     name: Frontend Build
     runs-on: ubuntu-latest
@@ -94,7 +102,9 @@ jobs:
           RESPONSE=$(curl -fsS -X POST http://localhost:8000/predict \
             -H "Content-Type: application/json" \
             -d '{"values": [5.0, 7.0, 6.0, 8.0, 6.0, 7.0, 5.0, 8.0, 4.0, 6.0, 7.0, 3.0, 5.0, 6.0]}')
-          echo "Response: $RESPONSE"
+          echo "=== SMOKE TEST RESPONSE ==="
+          echo "$RESPONSE"
+          echo "==========================="
           echo "$RESPONSE" | grep -q '"predicted_role"' || exit 1
           echo "Prediction smoke test PASSED"
 
