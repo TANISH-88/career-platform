@@ -10,6 +10,56 @@
 
 ---
 
+### Entry 8 — 2026-11-06 | Antigravity Agent (M2 session 6 — Final Verification)
+
+- **Checkpoints:** 7, 8, 9, 12
+- **Status:** PARTIAL — CP8 and CP12 locally verified; CP7 Docker evidence NOT VERIFIED (requires owner to retrieve from CI log); CP9 open (requires owner browser test).
+- **Task:** M2 final verification pass: branch confirmed, 92% claims searched, parity tests re-run, documentation checked.
+- **Files changed:**
+  - `PROJECT_LOG.md` — this entry.
+  - `CHECKPOINTS.md` — CP8 and CP12 status updated with current local evidence.
+- **Commands run and exact last line of output:**
+  - `git ls-remote origin refs/heads/main` → `1733ad54cb956644de60504ffbf5d054fc451e61  refs/heads/main`
+  - `python -m pytest tests/ -v --tb=short` → `49 passed, 18 warnings in 21.24s`
+  - `python -m pytest tests/test_parity.py tests/test_parity_failing_proof.py -v --tb=short` → `3 passed in 5.51s`
+  - `python ml-training/check_parity.py` → `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
+  - `python -m pytest ml-training/tests/test_extra_row_exclusion.py -v` → `3 passed, 18 warnings in 4.52s`
+  - `Select-String MODEL_CARD.md -Pattern "92\.|92%|0\.92|0\.925"` → one match: line 51 `0.924` in seed-ablation table (not an accuracy claim; it is one of 5 per-seed values, mean=0.908)
+  - `Select-String README.md -Pattern "92\.|92%|0\.92|0\.925"` → no matches
+- **Parity test detail (2026-11-06):**
+  ```
+  tests/test_parity.py::test_serving_parity PASSED
+  tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
+  tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
+  3 passed in 5.51s
+  ```
+- **Parity CLI detail (2026-11-06):**
+  ```
+  [PARITY] Loading artifacts from: C:\Users\Tanish\p4\ml-training\artifacts
+  [PARITY] Loading fixture: C:\Users\Tanish\p4\backend\fastapi\tests\fixtures\sample_careers.csv
+  [PARITY] Fixture rows: 160
+  [PARITY] Max probability difference (pipeline vs serving): 0.00e+00
+  [PARITY] Top-1 role mismatches: 0/160
+  [PARITY] Top-3 role/probability mismatches: 0/480
+  [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
+  ```
+- **Evidence:**
+  - `Evidence: 1733ad5 | git ls-remote origin refs/heads/main -> 1733ad54...  refs/heads/main | CI: https://github.com/TANISH-88/career-platform/actions`
+  - `Evidence: 1733ad5 | python -m pytest tests/ -v -> 49 passed, 18 warnings in 21.24s | CI: local`
+  - `Evidence: 1733ad5 | python ml-training/check_parity.py -> [PARITY OK] pipeline.pkl and PredictorService produce identical outputs. | CI: local`
+- **CI links:**
+  - CI #9: https://github.com/TANISH-88/career-platform/actions/runs/42066627462 (commit `6bd837f` — green, owner confirmed)
+  - CI #12: https://github.com/TANISH-88/career-platform/actions/runs/42080869679 (commit `f627ff4` — green, owner confirmed)
+  - CI for `1733ad5`: NOT VERIFIED — owner must check Actions tab
+- **Open issues / NOT VERIFIED:**
+  - CP7: Docker image size (`Image: backend:test | Size: ...`) and /predict JSON response — owner must open CI #12 docker-backend job log → "Report image size" step + "Verify POST /predict" step, copy exact output here.
+  - CP8: CI confirmation that `test_parity.py::test_serving_parity` shows PASSED (not SKIPPED) in CI #12 "Run pytest" step — owner must verify.
+  - CP9: Browser test — owner must run `npm run dev` and confirm both Test A (empty → error) and Test B (valid → role).
+  - CP12: CI run for `1733ad5` result — owner must confirm green.
+- **Next step:** Owner retrieves Docker evidence (CP7); owner confirms parity PASSED in CI (CP8); owner does browser test (CP9); owner confirms CI green (CP12).
+
+---
+
 ### Entry 7 — 2026-11-06 | Antigravity Agent (M2 session 5 — Restore Original Checkpoint Definitions)
 
 - **Checkpoints:** 1–12 (documentation corrections only)

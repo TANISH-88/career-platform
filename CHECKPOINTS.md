@@ -172,19 +172,29 @@ Actual /predict response: NOT VERIFIED — owner must check Actions log for CI #
 - [x] Normal code passes: `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
 - [ ] Green GitHub Actions run with parity test PASSED (not skipped) — verify CI #12
 
-**Status:** ⏳ PENDING CI — local tests pass; CI #12 is linked; owner must confirm parity test shows PASSED not SKIPPED in the CI #12 log.
+**Status:** ⏳ PENDING CI — local tests pass and all local conditions confirmed (2026-11-06). `test_parity.py` uses `pytest.fail` not `skipif`. `pipeline.pkl` is committed. CI #12 must be checked by owner to confirm PASSED not SKIPPED.
 
 **CI to verify:** https://github.com/TANISH-88/career-platform/actions/runs/42080869679 (commit `f627ff4`)
 
-**Local evidence (2026-11-05):**
+**Local evidence (2026-11-06, re-verified):**
 ```
 python ml-training/check_parity.py
 [PARITY] Loading artifacts from: C:\Users\Tanish\p4\ml-training\artifacts
+[PARITY] Loading fixture: C:\Users\Tanish\p4\backend\fastapi\tests\fixtures\sample_careers.csv
 [PARITY] Fixture rows: 160
 [PARITY] Max probability difference (pipeline vs serving): 0.00e+00
 [PARITY] Top-1 role mismatches: 0/160
 [PARITY] Top-3 role/probability mismatches: 0/480
 [PARITY OK] pipeline.pkl and PredictorService produce identical outputs.
+```
+
+**Parity pytest (2026-11-06, re-verified):**
+```
+pytest backend/fastapi/tests/test_parity.py backend/fastapi/tests/test_parity_failing_proof.py -v
+tests/test_parity.py::test_serving_parity PASSED
+tests/test_parity_failing_proof.py::test_parity_gate_passes_with_correct_model PASSED
+tests/test_parity_failing_proof.py::test_parity_gate_fails_with_wrong_model PASSED
+3 passed in 5.51s
 ```
 
 **Failing proof (2026-11-05):**
@@ -297,7 +307,17 @@ Evidence: f627ff4 | pytest ml-training/tests/test_extra_row_exclusion.py -v -> 3
 - [x] README.md updated with data notes and accuracy disclaimer
 - [ ] Green CI run with MODEL_CARD removal of 92.5% confirmed
 
-**Status:** ⏳ PENDING CI — all files committed and pushed (`847c9db`); CI run for `847c9db` or `c048852` pending confirmation.
+**Status:** ⏳ PENDING CI — all files committed and pushed. Documentation verified clean (2026-11-06): no unsupported 92% claim in MODEL_CARD.md or README.md. The only regex match for `0.92x` in MODEL_CARD.md is `0.924` in the seed-ablation table (one of 5 per-seed values, mean=0.908; not a headline accuracy claim). CI run for `1733ad5` pending owner confirmation.
+
+**Documentation search results (2026-11-06):**
+```
+Select-String MODEL_CARD.md -Pattern "92\.|92%|0\.92|0\.925"
+  Line 51: | 42, 123, 456, 789, 2024 | 0.906, 0.924, 0.899, 0.902, 0.909 | 0.908 | 0.009 |
+  → 0.924 is one seed's accuracy in a 5-seed ablation table; mean is 0.908. NOT a claim.
+
+Select-String README.md -Pattern "92\.|92%|0\.92|0\.925"
+  → no matches
+```
 
 **Evidence:**
 ```
