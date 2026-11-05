@@ -10,6 +10,37 @@
 
 ---
 
+### Entry 10 — 2026-11-06 | Antigravity Agent (M2 session 8 — Fix Checkpoint Definitions & Record CI Evidence)
+
+- **Checkpoints:** 1–30, S1–S5 (CP7, CP8, CP12 verified; CP9 remains open)
+- **Status:** PARTIAL — Exact 30 original checkpoint definitions and S1–S5 restored; CP7 and CP8 verified directly from CI logs; CP9 remains OPEN for owner browser test. Progress: 11/30 genuinely verified.
+- **Task:** 
+  1. Restored EXACT checkpoint definitions and section headers from user specification across all 30 CPs and S1–S5.
+  2. Restored CP1–CP6 original evidence format (`hash not recorded; 12 passed`, `hash not recorded; 32 passed`, etc.).
+  3. Extracted real Docker evidence for CP7 from GitHub Actions CI logs (runs 42096372008 and 42080869679):
+     - Image size: `985MB` (step "Report image size")
+     - Prediction response JSON: `{"predicted_role":"Software Tester","top_3_roles":[{"role":"Software Tester","probability":0.15368788829812394},{"role":"Application Support Engineer","probability":0.13597254114302973},{"role":"Business Analyst","probability":0.093986424325876}]}` (step "Verify POST /predict returns predicted_role")
+  4. Verified CP8 in CI logs: `tests/test_parity.py::test_serving_parity PASSED` (not skipped), `test_parity_failing_proof.py` both passed, and `check_parity.py` printed `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
+  5. Kept CP9 OPEN for owner's manual browser verification.
+- **Files changed:**
+  - `CHECKPOINTS.md` — exact original definitions, section headers, CP1–6 evidence, and CP7/8/12 verified evidence.
+  - `PROJECT_LOG.md` — this entry.
+- **Commands run and exact last line of output:**
+  - `gh run list --repo TANISH-88/career-platform --limit 10` → listed runs, latest 42096372008
+  - `gh run view 42096372008 --log` (Report image size) → `Image: backend:test | Size: 985MB`
+  - `gh run view 42096372008 --log` (Verify POST /predict) → `{"predicted_role":"Software Tester",...}`
+  - `gh run view 42096372008 --log` (Run pytest) → `tests/test_parity.py::test_serving_parity PASSED [ 18%]`
+  - `gh run view 42096372008 --log` (Run parity gate) → `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.`
+- **Evidence:**
+  - `Evidence: d07668e | gh run view 42096372008 --log -> Image: backend:test | Size: 985MB | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008`
+  - `Evidence: d07668e | gh run view 42096372008 --log -> [PARITY OK] pipeline.pkl and PredictorService produce identical outputs. | CI: https://github.com/TANISH-88/career-platform/actions/runs/42096372008`
+- **CI link:** https://github.com/TANISH-88/career-platform/actions/runs/42096372008
+- **Open issues / NOT VERIFIED:**
+  - CP9: Owner must run `npm run dev` in `my-app`, test empty field message (`Enter a number for every field`) and valid prediction, then confirm.
+- **Next step:** Owner performs CP9 browser test. M2 is NOT declared complete until CP9 is verified. M3 must not start.
+
+---
+
 ### Entry 9 — 2026-11-06 | Antigravity Agent (M2 session 7 — GitHub Sync Verification)
 
 - **Checkpoints:** 7, 8, 9, 12
