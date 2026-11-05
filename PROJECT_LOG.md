@@ -10,6 +10,34 @@
 
 ---
 
+### Entry 7 — 2026-11-06 | Antigravity Agent (M2 session 5 — Restore Original Checkpoint Definitions)
+
+- **Checkpoints:** 1–12 (documentation corrections only)
+- **Status:** DONE (documentation) — no application code changed.
+- **Task:** Reviewer found that CHECKPOINTS.md written in sessions 3 and 4 contained substitute
+  checkpoint definitions that did not match the original project specification. This entry restores
+  the exact original definitions for all 30 checkpoints and S1–S5 stretch goals.
+- **Files changed:**
+  - `CHECKPOINTS.md` — rewrote using exact original checkpoint purposes and completion requirements
+    from the project specification. CPs 1–6 evidence corrected: hashes 5abbbe8 (CP1), 2d999ed (CP2),
+    24f4597 (CP3), aa964ab (CP4), f58b17d+fd5bc2c (CP5), f58b17d (CP6) all verified present in git.
+    CP1 and CP2 test counts ("12 passed", "32 passed") are from original project record — NOT VERIFIED
+    from this session. CI links for CP7 corrected to actual run IDs (#9 and #12).
+  - `PROJECT_LOG.md` — this entry.
+- **Commands run and exact last line of output:**
+  - `git show --no-patch --format="%H %s" 24f4597 aa964ab f58b17d fd5bc2c` → `fd5bc2c... test: add fail_on_clamping_warning fixture...`
+  - `git show --no-patch --format="%H %s" 5abbbe8 2d999ed` → `2d999ed... phase 2: resume`
+- **Commits:** see commit for this entry (PROJECT_LOG + CHECKPOINTS.md together)
+- **CI:** https://github.com/TANISH-88/career-platform/actions
+- **Open issues / NOT VERIFIED:**
+  - CP7: Docker image size and /predict response — owner must retrieve from CI #9 or CI #12 log
+  - CP8: Parity test PASSED (not SKIPPED) — owner must verify in CI #12 log
+  - CP9: Browser validation — owner must run npm run dev and confirm
+  - CP12: CI run for 847c9db/c048852 result — owner must confirm green
+- **Next step:** Owner verifies CI #12 for CP8/CP11/CP12; owner retrieves Docker evidence for CP7; owner confirms browser for CP9.
+
+---
+
 ### Entry 6 — 2026-11-06 | Antigravity Agent (M2 session 4 — Final Review Corrections)
 
 - **Checkpoints:** 7, 8, 9, 10, 11, 12
