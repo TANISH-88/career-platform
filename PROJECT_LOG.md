@@ -20,7 +20,9 @@
   - `PROJECT_LOG.md` — this entry.
 - **Commands run and exact last line of output:**
   - `python -m pytest tests/ -q --tb=short` → `49 passed, 18 warnings in 22.39s`
-- **CI:** https://github.com/TANISH-88/career-platform/actions (run for commit following this entry)
+  - `git push origin main` → `f627ff4..847c9db  main -> main`
+- **Commits:** `847c9db`
+- **CI:** https://github.com/TANISH-88/career-platform/actions (CI triggered by `847c9db`)
 - **Open issues / NOT VERIFIED:**
   - CP7: Docker image size and /predict response — owner must retrieve from CI `docker-backend` job log (Actions run for `6bd837f` or later)
   - CP9: Browser validation — owner must run `npm run dev` and confirm empty-field and valid-field behavior
