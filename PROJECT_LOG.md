@@ -27,8 +27,8 @@
 - **Commands run and exact last line of output:**
   - `git show --no-patch --format="%H %s" 24f4597 aa964ab f58b17d fd5bc2c` → `fd5bc2c... test: add fail_on_clamping_warning fixture...`
   - `git show --no-patch --format="%H %s" 5abbbe8 2d999ed` → `2d999ed... phase 2: resume`
-- **Commits:** see commit for this entry (PROJECT_LOG + CHECKPOINTS.md together)
-- **CI:** https://github.com/TANISH-88/career-platform/actions
+- **Commits:** `5876db4`
+- **CI:** https://github.com/TANISH-88/career-platform/actions (run for `5876db4`)
 - **Open issues / NOT VERIFIED:**
   - CP7: Docker image size and /predict response — owner must retrieve from CI #9 or CI #12 log
   - CP8: Parity test PASSED (not SKIPPED) — owner must verify in CI #12 log
