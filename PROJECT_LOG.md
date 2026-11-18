@@ -10,6 +10,24 @@
 
 ---
 
+### Entry 13 — 2026-11-19 | Antigravity Agent | Correction to Entry 12 — Distance Space and Test-Count Explanation
+
+- **Checkpoints:** No checkpoints ticked (correction entry only).
+- **Status:** CORRECTION — Two factual errors in Entry 12 corrected below. No code changed.
+- **Corrections:**
+
+  **1. Distance computation space (Step 5 of previous audit):**
+  Entry 12 stated the same-role vs different-role distances were computed in "raw 0-1 personality space". This is incorrect. The distances were computed in **standardized (z-scored) personality space**: `StandardScaler().fit_transform()` was applied to the 218 distinct persona rows before `pairwise_distances(metric="euclidean")` was called. The correct description is: 10-dimensional Euclidean distance in standardized personality space. In raw [0,1] space the theoretical maximum Euclidean distance across 10 dimensions is √10 ≈ 3.16, so the reported values (intra-role 3.55, inter-role 4.23) would be impossible there.
+
+  **2. Test-count explanation (from previous session):**
+  Entry 12 stated "2 new test functions" bring the count "from 47 to 49 collected test items". The correct explanation: commit `85a6855` added 2 new parameterized test functions — `test_phase1_predict_out_of_range_or_nonfinite_returns_422` (4 parameter values) and `test_predict_rejects_invalid_value` (4 parameter values). `pytest --collect-only` counts each parametrized variant as a separate item, so 2 new functions × 4 parameters each = 8 new collected items. The count rose from 41 collected (before `85a6855`) to 49 (8 items added), not from 47. The 47-pass count in CP10 evidence refers to test *runs* under Python/Windows at a specific point in time where some parametrized tests may have been grouped differently. The current collect shows 49 items.
+
+- **Files changed:** `PROJECT_LOG.md` — this correction entry.
+- **Evidence:** `Evidence: (this commit) | python ml-training/audit/persona_generalization.py -> standardized space confirmed by StandardScaler call | local`
+- **Open issues / NOT VERIFIED:** None — corrections only.
+
+---
+
 ### Entry 12 — 2026-11-19 | Antigravity Agent | Read-Only Audit — Dataset Analysis Steps 1–7 (Post-M2)
 
 - **Checkpoints:** No new checkpoints ticked (read-only analysis; CP13+ are M3 scope).
