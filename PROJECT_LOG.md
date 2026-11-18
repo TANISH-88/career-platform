@@ -10,6 +10,73 @@
 
 ---
 
+### Entry 12 — 2026-11-19 | Antigravity Agent | Read-Only Audit — Dataset Analysis Steps 1–7 (Post-M2)
+
+- **Checkpoints:** No new checkpoints ticked (read-only analysis; CP13+ are M3 scope).
+- **Status:** COMPLETE — All 9 steps executed; audit scripts pushed; tests green ×3; waiting for reviewer.
+- **Task:**
+  1. Step 0: Appended project-tracking rule to `.kiro/steering/project-context.md`; committed `cb2a899`.
+  2. Step 1: Searched for `augment`/`synthetic` data-generation scripts — **nothing found** in git history, tracked files, `RF.ipynb`, or `career_model_*` folders. `concat` in Cell 10 of `RF.ipynb` only concatenates PCA columns horizontally; no row creation.
+  3. Step 2: Compared `RF.ipynb` data-prep/training cells with `ml-training/train.py`. Key differences listed (see analysis below).
+  4. Steps 3–5: Ran `ml-training/audit/per_column_stats.py` and `ml-training/audit/persona_generalization.py`.
+  5. Step 6: Pushed 2 commits (`cb2a899`, `90962b2`) to `origin/main` (confirmed `e3de2fc..90962b2 main -> main`).
+  6. Step 7: Ran full test suite 3× — `49 passed, 16 warnings` each run; no fatal exceptions.
+- **Step 2 — RF.ipynb vs train.py differences:**
+  - **Data filtering:** Notebook uses all 10,179 rows (no extra-row exclusion). `train.py` excludes 1,000 unknown-origin extra rows by default (integer-technical-feature heuristic), leaving 9,179 rows.
+  - **Scaler/PCA leakage:** Notebook fits `StandardScaler` and `PCA` on the full dataset (all rows) in Cell 10 before splitting. `train.py` fits scaler+PCA on `X_train` only (no leakage), via `ColumnTransformer` inside a `Pipeline`.
+  - **Feature construction:** Notebook drops `corr_features` (the 4 technical columns) and replaces them with 2 PCA components, leaving 12 features. `train.py` keeps all 14 original features and uses a `ColumnTransformer` that applies scaler+PCA to technical columns and passes personality through, also producing 12 features, but via pipeline (no raw column drop).
+  - **Split:** Both use `test_size=0.2, random_state=42`; `train.py` adds `stratify=y`; notebook does not stratify.
+  - **RF hyperparameters:** Notebook final model (Cell 28, `GS_model`): `bootstrap=True, max_depth=10, max_features='sqrt', min_samples_leaf=7, min_samples_split=7, n_estimators=200, random_state=42`. `train.py` reads from `params.yaml` with identical defaults — same hyperparameters.
+  - **Label encoding:** Both use `LabelEncoder`. Notebook encodes `y` globally; `train.py` calls `le.fit_transform(df[TARGET_COL])` on the loaded (filtered) dataframe.
+- **Step 3 — Per-column technical stats (raw rows, integer 0–6):**
+  - Computer Architecture: min=0, max=6, mean=2.7060, std=1.8504
+  - Programming Skills:    min=0, max=6, mean=2.7060, std=1.8504
+  - Project Management:    min=0, max=6, mean=2.7060, std=1.8504
+  - Communication skills:  min=0, max=6, mean=2.7060, std=1.8504
+  - (Extra rows: all 4 columns in [0.0001, 1.0000], mean≈0.49–0.50, clearly uniform-continuous)
+  - Personality raw ranges: Openness [0.5636, 0.9008], Conscientousness [0.1086, 0.7345], Extraversion [0.1023, 0.7455], Agreeableness [0.0177, 0.5384], Emotional_Range [0.3911, 0.8895], Conversation [0.0125, 0.3905], Openness to Change [0.1470, 0.6556], Hedonism [0.0627, 0.4275], Self-enhancement [0.0876, 0.5947], Self-transcendence [0.0593, 0.5080]
+  - Personality extra ranges: all 10 columns span [~0.001, ~1.000] — clearly uniform random, far outside raw bounds.
+- **Step 4 — Dedup and accuracy:**
+  - Raw rows: 9,179 total; 6,063 exact duplicates; 3,116 distinct rows
+  - Distinct personality vectors (personas): 218 total
+  - Personas per role (top 5): Software Developer=55, Application Support Engineer=31, Networking Engineer=19, Project Manager=19, Graphics Designer=14
+  - Raw test accuracy (5 seeds 0–4): [0.9956, 0.9967, 0.9989, 0.9951, 0.9935] → mean=0.9960 ± 0.0018
+  - Extra-row accuracy (trained on raw, tested on extra): [0.0630, 0.0670, 0.0540, 0.0580, 0.0620] → mean=0.0608 ± 0.0044
+- **Step 5 — Persona generalization GroupKFold (5 folds, 218 persona groups, deduplicated 3,116 rows):**
+  - RF pipeline (full):        folds [0.2311, 0.3162, 0.1699, 0.2921, 0.2713] → mean=0.2561, std=0.0514
+  - 1-NN (personality only):   folds [0.1573, 0.2135, 0.2532, 0.2568, 0.3002] → mean=0.2362, std=0.0481
+  - LogReg (personality only): folds [0.3034, 0.2119, 0.3974, 0.2504, 0.1396] → mean=0.2605, std=0.0868
+  - RF (technical only):       folds [0.2263, 0.2103, 0.2308, 0.2215, 0.1637] → mean=0.2105, std=0.0244
+  - Majority-class baseline: 0.1130
+  - Mean intra-role distance (standardized personality): 3.5481 ± 1.5374
+  - Mean inter-role distance: 4.2258 ± 1.7024
+  - **Finding:** All 4 models perform only modestly above baseline when persona groups are held out. Distance between personas within the same role (3.55) is nearly as large as between roles (4.23), indicating personality vectors do not cleanly separate roles. The model's high accuracy in random splits (0.996) is driven by memorization of repeated personality vectors, not genuine role-discriminating signal.
+- **Step 7 — Test suite (×3):**
+  - Run 1: `49 passed, 16 warnings in 19.61s`
+  - Run 2: `49 passed, 16 warnings in 16.55s`
+  - Run 3: `49 passed, 16 warnings in 16.79s`
+  - No fatal exceptions.
+- **Files changed:**
+  - `.kiro/steering/project-context.md` — tracking rule appended (commit `cb2a899`)
+  - `ml-training/audit/per_column_stats.py` — new (commit `90962b2`)
+  - `ml-training/audit/persona_generalization.py` — new (commit `90962b2`)
+  - `ml-training/audit/step1_nb_inspect.py` — new scratch helper (commit `90962b2`)
+  - `PROJECT_LOG.md` — this entry
+  - `CHECKPOINTS.md` — no change to ticked checkpoints (progress remains 12/30)
+- **Commands run and exact last line of output:**
+  - `git ls-files | findstr /i augment` → (no output — exit 1)
+  - `git log --all --oneline -- "*augment*"` → (no output)
+  - `git grep -n -i "augment|synthetic" -- "*.py" "*.md"` → (no output — exit 1)
+  - `python per_column_stats.py` → `DONE`
+  - `python persona_generalization.py` → `DONE`
+  - `git push origin main` → `e3de2fc..90962b2  main -> main`
+  - `pytest tests/ -v -rs` ×3 → `49 passed, 16 warnings in 19.61s` / `16.55s` / `16.79s`
+- **Evidence:** `Evidence: 90962b2 | python per_column_stats.py -> DONE | local`; `Evidence: 90962b2 | python persona_generalization.py -> DONE | local`
+- **Open issues / NOT VERIFIED:** No new checkpoints ticked (steps 1–7 are read-only analysis; no CI-verifiable artifact from this session closes any M3 checkpoint).
+- **Next step:** STOP and wait for reviewer.
+
+---
+
 ### Entry 11 — 2026-11-06 | Antigravity Agent | M2 Final Closure — Owner Browser Validation & Reviewer Approval
 
 - **Checkpoints:** 9 (Foundation CP1–CP6: 6 ✅ | Close M2 CP7–CP12: 6 ✅ | Total: 12/30 ✅)
