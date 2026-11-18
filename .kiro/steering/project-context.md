@@ -112,3 +112,14 @@ These are NOT part of the current refactor.
 - Preserve existing functionality.
 - Avoid unnecessary dependencies.
 - Do not change prediction accuracy.
+
+---
+
+## Project tracking (mandatory)
+Before you finish any task that changes code, config, tests, data or docs:
+1. Add an entry at the top of PROJECT_LOG.md (format is in that file).
+2. Tick a checkpoint in CHECKPOINTS.md only if you can cite a commit hash
+   and the exact output of a command that proves it. Otherwise leave it
+   unticked and write NOT VERIFIED.
+3. Never edit or delete old log entries. Add a correction entry instead.
+4. Commit both files together with the code change.
