@@ -2,7 +2,7 @@
 
 Commit: 55572273068bdad19d719149df877d7b00fd01d1
 Branch: m3/part-a-corrected
-CI: https://github.com/TANISH-88/career-platform/actions/workflows/ci.yml?query=branch%3Am3%2Fpart-a-corrected
+CI: https://github.com/TANISH-88/career-platform/actions/runs/45485958127
 Evidence: owner-supplied green CI screenshot and exact champion/candidate verification log.
 
 - Champion recipe fixed to notebook RF; trained on development personas only.
@@ -13,6 +13,6 @@ Evidence: owner-supplied green CI screenshot and exact champion/candidate verifi
 - Registry was isolated SQLite in CI; not a persistent production registry.
 - Champion and identical candidate parity passed: max probability difference 0.00e+00, top-1 0/160 and top-3 0/480 mismatches each.
 - Candidate accuracy: 0.1972972972972973; observed gain 0; paired 90% interval [0, 0]; min gain 0.02; seed 42; 2,000 persona resamples; promotion_eligible=false.
-- CI #66 backend, frontend and Docker succeeded. Workflow contains the synthetic gate tests and explicit assertions on registry versions and identical candidate rejection. Exact individual gate test log was not supplied.
+- CI #66 backend, frontend and Docker succeeded. Workflow contains the synthetic gate tests and explicit assertions on registry versions and identical candidate rejection. Directly verified job 138771265506: all five promotion-gate tests passed; training tests 9 passed, 3 skipped; backend 49 passed, 17 warnings in 8.67s. Total 58 passed, 0 failed, 3 skipped.
 - Model signature warning from MLflow; no deployment. Existing serving binaries unchanged.
 - Part C requires a durable champion reference (frozen row-aligned predictions or artifact); CI #66 uploaded reports only. No production promotion approved.
