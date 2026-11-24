@@ -1,9 +1,9 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 15/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 16/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13, CP14, CP16): 3 ✅; CP15/17/18 under review | remaining: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP16): 4 ✅; CP17/18 pending final reviewer approval | remaining: 0 ✅
 >
 > **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 Part A technically verified on the review branch.
 
@@ -316,9 +316,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** train.py split into importable functions; notebook recipe retrained on development personas as v1 champion; historical model separately registered.
 
-**Status:** ⏳ PENDING VERIFICATION — independent review found incomplete scope; correction verification required.
+**Status:** ✅ DONE (persistent local MLflow verification completed; final reviewer sign-off pending).
 
-**Evidence:** 5557227 | bootstrap --register → Created version '1' of both models | CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127; CI registry ephemeral; persistent registration still requires verification.
+**Evidence:** a35e5eb | MLFLOW_TRACKING_URI=sqlite:///C:/Users/Tanish/p4/mlflow.db backend\fastapi\venv\Scripts\python.exe ml-training/train.py bootstrap --register --output ml-training/m3-output → career-rf-m3-champion v1 (run 360767520c804bcbb70f67d6c73d5dc2) and career-rf-legacy v1 (run 688561cc262042f48a07f29a233183f5) created; fresh-process reload CHAMPION_RELOADED_HOLDOUT: accuracy=0.1972972972972973 macro_f1=0.16639113268278288 ref_match=True local_match=True, LEGACY_RELOADED_PARITY: exact_match=True | Local persistent SQLite + CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127
 
 ---
 

@@ -10,6 +10,25 @@
 
 ---
 
+### Entry 18 — 2026-11-25 | M3 Final Task — CP15 Persistent MLflow Registration
+
+- **Scope & sync:** Synced clean local `m3/part-a-corrected` from `818b198` to `a35e5eb` (`git pull --ff-only origin m3/part-a-corrected`).
+- **Pre-change MLflow DB inspection (`C:\Users\Tanish\p4\mlflow.db`, size `225280`):** Experiments `'0'` (`Default`, `file:///C:/Users/Tanish/p4/mlruns/0`) and `'1'` (`career-prediction`, `file:///C:/Users/Tanish/p4/mlruns/1`), 4 existing `FINISHED` runs (`76426b582cd84a38b3e9b16914785f89`, `5e6caf32985c4301ac9d38968f586e1f`, `00db04a27cc64a178993b655ec151efc`, `daa3f52732f84084bfc37358988ca28d`), and registered model `career-rf` (versions `1`, `2`, `3`) present; `ml-training/m3-output` absent.
+- **Persistent bootstrap command:** `$env:MLFLOW_TRACKING_URI="sqlite:///C:/Users/Tanish/p4/mlflow.db"; backend\fastapi\venv\Scripts\python.exe ml-training/train.py bootstrap --register --output ml-training/m3-output`
+- **Bootstrap output:**
+  - `Created version '1' of model 'career-rf-m3-champion'.` (run_id `360767520c804bcbb70f67d6c73d5dc2`)
+  - `Created version '1' of model 'career-rf-legacy'.` (run_id `688561cc262042f48a07f29a233183f5`)
+  - `[PARITY OK] pipeline.pkl and PredictorService produce identical outputs.` (`0/160` top-1 mismatches, `0/480` top-3 mismatches, max probability diff `0.00e+00`)
+  - `champion_holdout_accuracy`: `0.1972972972972973`, `champion_holdout_macro_f1`: `0.16639113268278288`
+- **Fresh Python process persistence & reload verification:**
+  - `PRIOR_DATA_INTACT: True (4 prior runs + career-rf v1,v2,v3 preserved)` (`CAREER_PREDICTION_RUN_COUNT: 6`)
+  - `career-rf-m3-champion` v1 (`status=READY`, run `360767520c804bcbb70f67d6c73d5dc2`) artifact exists at `mlruns/1/360767520c804bcbb70f67d6c73d5dc2/artifacts/pipeline`; reloaded via `mlflow.sklearn.load_model("models:/career-rf-m3-champion/1")` -> `CHAMPION_RELOADED_HOLDOUT: accuracy=0.1972972972972973 macro_f1=0.16639113268278288 ref_match=True local_match=True`.
+  - `career-rf-legacy` v1 (`status=READY`, run `688561cc262042f48a07f29a233183f5`) artifact exists at `mlruns/1/688561cc262042f48a07f29a233183f5/artifacts/pipeline`; reloaded via `mlflow.sklearn.load_model("models:/career-rf-legacy/1")` -> `LEGACY_RELOADED_PARITY: rows=160 max_diff=0.00e+00 exact_match=True`.
+- **Evidence:** `Evidence: a35e5eb | backend\fastapi\venv\Scripts\python.exe ml-training/train.py bootstrap --register --output ml-training/m3-output (MLFLOW_TRACKING_URI=sqlite:///C:/Users/Tanish/p4/mlflow.db) -> champion v1 (360767520c804bcbb70f67d6c73d5dc2) & legacy v1 (688561cc262042f48a07f29a233183f5) persisted and reloaded; holdout acc=0.1972972972972973, macro_f1=0.16639113268278288 | local persistent DB (gitignored)`
+- **Safety boundaries:** Prior MLflow experiments/runs/`career-rf` preserved; frozen dataset/reference untouched; no model promoted or deployed; no DB/binary committed; stopped for Claude's final M3 approval.
+
+---
+
 ### Entry 17 — 2026-11-25 | M3 Part C — Workflow verification and review handoff
 
 - Candidate workflow #2 succeeded (run 45487376480): equal champion/candidate accuracy 0.1972972972972973; promotion_eligible false; artifact 14964493210 uploaded.
