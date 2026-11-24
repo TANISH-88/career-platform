@@ -9,3 +9,10 @@ Corrections committed:
 - DVC stage aligned with candidate-only default CLI. Real DVC reproduction run https://github.com/TANISH-88/career-platform/actions/runs/45491253541 pending; lock must be refreshed from actual output, not fabricated.
 - Checkpoints CP15/17/18 reopened. Persistent MLflow registration outside temporary CI remains unverified. For local verification use python ml-training/train.py bootstrap --register --output ml-training/m3-output (fresh output directory, persistent SQLite tracking URI); preserve database and artifact location and verify version 1 can be loaded after process restart.
 - No serving binaries changed, no merge, no deployment, no M4. All new CI results require inspection and Claude re-review.
+
+## Follow-up evidence
+
+- DVC #1 failed: DVC 3.51.2 imported `_DIR_MARK`, unavailable in pathspec 1.1.1. Pinned pathspec 0.12.1 in workflow and training requirements. DVC #2 succeeded, run https://github.com/TANISH-88/career-platform/actions/runs/45491639091, artifact 14966207110. Actual regenerated lock committed at d93a7b7 (output: Updating lock file 'dvc.lock').
+- CI #101, https://github.com/TANISH-88/career-platform/actions/runs/45491374320: 49 backend passed, 14 ML passed, 3 skipped (63 total passed). All five review-correction tests passed. Candidate #14 https://github.com/TANISH-88/career-platform/actions/runs/45491652918: mean matched seed gain 0, equal-persona gain 0, macro-F1 gain 0, promotion_eligible false; artifact 14965599417.
+- Separate synthetic addendum push proof branch m3/addendum-proof, commit ee590e8, workflow https://github.com/TANISH-88/career-platform/actions/runs/45492166328, pending. Never merge this branch. Real addendum stays empty.
+- Persistent local registration still needs owner evidence; final reviewer approval remains pending.
