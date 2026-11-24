@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: pip install -r backend/fastapi/requirements.txt dvc==3.51.2
+        run: pip install -r backend/fastapi/requirements.txt dvc==3.51.2 pathspec==0.12.1
       - name: Regenerate lock with DVC
         run: |
           dvc repro --force train
