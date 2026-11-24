@@ -16,11 +16,23 @@ from check_parity import check_parity
 from promotion_gate import promotion_gate
 
 REFERENCE = REPO_ROOT / "ml-training/champion-reference.json"
+REFERENCE_SHA256 = "0f641757354343976ce6eb448b81054850674c81931ad6d28181cbeaa77be548"
+REFERENCE_ACCURACY = 0.1972972972972973
+REFERENCE_MACRO_F1 = 0.16639113268278288
+
+
+def read_reference(path=REFERENCE):
+    if digest(path) != REFERENCE_SHA256:
+        raise ValueError("Frozen champion reference SHA256 mismatch")
+    ref = json.loads(path.read_text())
+    if ref["holdout_accuracy"] != REFERENCE_ACCURACY or ref["holdout_macro_f1"] != REFERENCE_MACRO_F1:
+        raise ValueError("Frozen champion benchmark mismatch")
+    return ref
 
 
 def run(output):
     dev, hold = load_frozen_split()
-    ref = json.loads(REFERENCE.read_text())
+    ref = read_reference()
     if (ref["identity"] != frozen_identity()
             or ref["recipe"] != CHAMPION_PARAMS
             or ref["row_ids"] != hold.row_id.tolist()
