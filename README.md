@@ -41,6 +41,18 @@ with a templated source and lacks external validation. Eligibility requires
 a 2 percentage-point gain, positive paired-bootstrap lower bound and serving parity.
 Promotion is disabled until M4; existing serving model files are untouched.
 
+### Candidate-only GitHub Actions workflow
+
+[M3 candidate training](https://github.com/TANISH-88/career-platform/actions/workflows/m3-candidate.yml)
+runs on matching pushes and supports manual dispatch after the workflow is on the default branch.
+The champion reference is frozen row-aligned predictions from a one-time reproduction
+of verified commit 5557227 (run 45487237769), not a retrained champion per candidate.
+A changed CSV without a reviewed new manifest/reference fails validation; intentionally
+changing the evaluation dataset requires a new reviewed evaluation version.
+Candidate rejection is a successful workflow outcome; validation or training crashes fail
+the job. Candidate artifacts and report are retained for 14 days. No registry write,
+approval email, promotion or deployment.
+
 ## Input Scale
 
 `POST /predict` expects all 14 feature values in UI scale `[1, 10]`.  
