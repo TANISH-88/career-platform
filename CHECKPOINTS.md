@@ -289,14 +289,14 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 ## M3 — Honest evaluation and training
 
-> M3 has NOT been started. All checkpoints below are ❌ NOT DONE.
+> M3 Part A is in progress on a review branch. CP13 and CP14 require passing verification.
 > Do not start M3 until M2 is fully approved by the reviewer.
 
 ### CP13 — Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns
 
 **Goal:** Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — 3,116 rows, 218 personas, 16 roles; see data/cleaned/README.md.
 
 ---
 
@@ -304,7 +304,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Frozen holdout of unseen personas saved in git.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — 44 holdout personas, 174 development personas; frozen manifest committed.
 
 ---
 
