@@ -336,7 +336,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Training workflow runs on GitHub: new data produces a candidate and a report.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — candidate-only workflow implemented; clean run and intentional tamper failure must both be verified.
 
 ---
 
