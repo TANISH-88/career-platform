@@ -10,6 +10,15 @@
 
 ---
 
+### Entry 16 — 2026-11-25 | M3 Part C — Candidate-only workflow
+
+- Direct CI #66 verification: 49 backend tests and 9 ML tests passed; 3 legacy DVC tests skipped. All 5 statistical gate tests passed.
+- Frozen champion reference reproduced from commit 5557227, run https://github.com/TANISH-88/career-platform/actions/runs/45487237769, matching 0.1972972972972973 accuracy and 0.16639113268278288 macro-F1. Row-aligned 740 predictions committed.
+- Candidate-only workflow added. CP18 remains pending clean-run and intentional tamper-failure evidence.
+- Main and serving binaries untouched; no automatic registration, promotion or deployment.
+
+---
+
 ### Entry 15 — 2026-11-25 | M3 Part B — Champion, holdout and promotion gate
 
 - CP15–CP17 technically verified in isolated CI #66, commit 5557227. Reviewer sign-off pending.
