@@ -1,5 +1,29 @@
 # Model Card — Career Prediction Random Forest (career-rf)
 
+## M3 evaluation protocol (implementation pending CI evidence)
+
+The earlier sections below are historical experiments, not current champion scores.
+M3 uses 3,116 deduplicated rows (218 personas, 16 roles). The frozen holdout contains
+44 personas / 740 rows; development contains 174 personas / 2,376 rows.
+Scaler, PCA and RF fit only on development personas. The notebook RF recipe is fixed;
+the historical model is separately identified and is not a valid unseen-persona baseline.
+The new champion accuracy and macro-F1 must be taken from generated CI reports,
+not inferred from the old random split. The 0.906 random-split result reflects
+memorization of overlapping profiles, not performance on unseen people.
+All four technical features have identical raw marginal distributions and pairwise
+correlations approximately 0.6391, strongly consistent with a generated or templated
+dataset; its origin is not independently established. No independent real-world
+validation exists. API Specialist has just one development and one holdout persona;
+per-role scores are unstable. One persona has two role labels.
+
+Promotion eligibility requires candidate minus champion row accuracy >= 0.02,
+a positive lower bound of a paired 90% persona-cluster bootstrap interval (2,000
+resamples, seed 42), and serving parity. No automatic deployment.
+Repeated candidate evaluation can overfit this fixed holdout; use development-only
+grouped CV for tuning and reserve holdout for final comparison.
+
+## Historical data and evaluation
+
 ## Data
 
 | Property | Value |
@@ -108,7 +132,7 @@ Reproduce with: `python ml-training/audit/eval_sensitivity.py`
 > personality vectors with training rows (1,411 / 2,036 test rows, ~69%, have an
 > exact personality vector twin in training). On those in-training-vector rows,
 > accuracy is ~0.999; on out-of-training-vector rows it falls to ~0.69.
-> Grouped accuracy of **0.188** is a more realistic upper bound for new individuals.
+> Grouped accuracy of **0.188** is an estimate on this dataset, not an upper bound for new individuals.
 > The GroupKFold result of **0.256** (barely above majority-class baseline of 0.113)
 > corroborates this.
 
@@ -156,8 +180,7 @@ the random-split results risks confusion with the new model's headline accuracy.
 5. **Serving path uses separate pkl files.** The serving code
    (`feature_mapper.py`, `predictor.py`) loads `scaler.pkl`, `pca.pkl`,
    `frf.pkl` independently. The MLflow-registered `Pipeline` artifact is not
-   yet used at serve time; sync is maintained by `promote.py` convention, not
-   enforced structurally.
+   yet used at serve time; legacy parity checks verify synchronization; M3 disables serving-artifact promotion pending M4.
 
 ## Input Units (Serving Boundary)
 
