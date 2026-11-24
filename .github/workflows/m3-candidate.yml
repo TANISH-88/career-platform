@@ -6,7 +6,9 @@ on:
     paths:
       - 'data/cleaned/**'
       - 'ml-training/**'
-      - 'params.yaml'
+      - 'data/development/**'
+      - 'backend/fastapi/app/config/constants.py'
+      - 'backend/fastapi/app/services/**'
       - '.github/workflows/m3-candidate.yml'
 
 permissions:
