@@ -10,6 +10,14 @@
 
 ---
 
+### Entry 17 — 2026-11-25 | M3 Part C — Workflow verification and review handoff
+
+- Candidate workflow #2 succeeded (run 45487376480): equal champion/candidate accuracy 0.1972972972972973; promotion_eligible false; artifact 14964493210 uploaded.
+- Intentional tamper workflow #3 failed (run 45487439466): ValueError: Cleaned dataset SHA256 does not match frozen holdout. No artifacts.
+- CP18 technical verification recorded; full details and reviewer checklist in docs/m3/part-c-verification.md. No merge or deployment; final reviewer approval pending.
+
+---
+
 ### Entry 16 — 2026-11-25 | M3 Part C — Candidate-only workflow
 
 - Direct CI #66 verification: 49 backend tests and 9 ML tests passed; 3 legacy DVC tests skipped. All 5 statistical gate tests passed.
