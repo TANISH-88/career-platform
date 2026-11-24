@@ -36,7 +36,7 @@ python ml-training/train.py candidate
 
 The holdout is 44 of 218 personas; no overlap with development. New scores appear
 in `ml-training/m3-output/champion/report.json` and `candidate/report.json`.
-Historical random-split accuracy is not generalization. The data is consistent
+CI #66 measured champion holdout accuracy **19.73%**, macro-F1 **16.64%**; the identical candidate was rejected (gain 0). Historical random-split accuracy is not generalization. The data is consistent
 with a templated source and lacks external validation. Eligibility requires
 a 2 percentage-point gain, positive paired-bootstrap lower bound and serving parity.
 Promotion is disabled until M4; existing serving model files are untouched.
