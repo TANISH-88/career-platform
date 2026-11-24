@@ -314,44 +314,14 @@ def bootstrap(output, register=False):
 
 
 def train_candidate(output):
-    dev, hold = load_frozen_split()
-    directory = output / "champion"
-    report = json.loads((directory / "report.json").read_text())
-    if (report["identity"] != frozen_identity()
-            or report["recipe"] != CHAMPION_PARAMS
-            or report["pipeline_sha256"] != digest(directory / "pipeline.pkl")
-            or report["parity_passed"] is not True):
-        raise ValueError("Champion identity or artifact mismatch")
-    champion = joblib.load(directory / "pipeline.pkl")
-    params = _load_params(REPO_ROOT)["RF_PARAMS"]
-    candidate, encoder = fit_development(dev, params)
-    if report["class_order"] != encoder.classes_.tolist():
-        raise ValueError("Champion class order mismatch")
-    destination = output / "candidate"
-    if destination.exists():
-        raise FileExistsError("Candidate already exists; use a fresh output directory")
-    save_artifacts(candidate, destination)
-    parity = check_parity(destination)
-    y = encoder.transform(hold.Role)
-    gate_params = yaml.safe_load((REPO_ROOT / "ml-training/params.yaml").read_text())
-    gate = promotion_gate(y, champion.predict(hold[ALL_FEATURES]),
-                          candidate.predict(hold[ALL_FEATURES]), hold.persona_id, parity,
-                          min_gain=gate_params.get("min_gain", 0.02))
-    result = {"identity": frozen_identity(), "recipe": params,
-              "champion_pipeline_sha256": report["pipeline_sha256"],
-              "candidate_pipeline_sha256": digest(destination / "pipeline.pkl"),
-              "champion_holdout": evaluate(champion, encoder, hold),
-              "candidate_holdout": evaluate(candidate, encoder, hold),
-              "candidate_dev": evaluate(candidate, encoder, dev), "gate": gate,
-              "deployed": False}
-    write_json(destination / "report.json", result)
-    print(json.dumps(gate, indent=2))
-    return result
+    """Use the pinned-reference and robust gate shared with CI."""
+    from train_candidate_ci import run
+    return run(output / "candidate")
 
 
 def train():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["bootstrap", "candidate"])
+    parser.add_argument("mode", nargs="?", default="candidate", choices=["bootstrap", "candidate"])
     parser.add_argument("--output", type=pathlib.Path,
                         default=REPO_ROOT / "ml-training/m3-output")
     parser.add_argument("--register", action="store_true",
