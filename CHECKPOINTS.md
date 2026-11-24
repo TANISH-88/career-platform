@@ -1,9 +1,9 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 14/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 17/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP14): 2 ✅ | remaining: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP17): 5 ✅ | remaining: 0 ✅
 >
 > **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 Part A technically verified on the review branch.
 
@@ -308,11 +308,11 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 ---
 
-### CP15 — train.py split into importable functions; original model registered as v1 champion
+### CP15 — train.py split into importable functions; notebook RF recipe retrained on development personas and registered as v1 champion; historical model separately registered
 
 **Goal:** train.py split into importable functions; original model registered as v1 champion.
 
-**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
+**Status:** ✅ DONE (technical verification in isolated CI #66; reviewer sign-off pending). See docs/m3/part-b-verification.md.
 
 ---
 
@@ -320,7 +320,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Champion score measured on the frozen holdout (not hardcoded).
 
-**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
+**Status:** ✅ DONE (technical verification in isolated CI #66; reviewer sign-off pending). See docs/m3/part-b-verification.md.
 
 ---
 
@@ -328,7 +328,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Promotion gate: paired comparison on the same folds beats seed noise; parity check included.
 
-**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
+**Status:** ✅ DONE (technical verification in isolated CI #66; reviewer sign-off pending). See docs/m3/part-b-verification.md.
 
 ---
 
