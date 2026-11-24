@@ -1,6 +1,8 @@
 # Hyperparameter file consumed by both train.py and dvc.yaml
 random_seed: 42
 test_size: 0.20
+holdout_persona_fraction: 0.20
+holdout_seed: 42
 
 rf_params:
   bootstrap: true
