@@ -24,6 +24,23 @@ The training dataset (`CareerMapping1.csv`) contains 10,179 rows, of which **1,0
 
 > **Accuracy note:** Random-split accuracy (~0.902) reflects test rows that largely overlap with training personality profiles. Grouped (unseen-persona) accuracy is ~0.188. See MODEL_CARD.md for the full evaluation breakdown.
 
+## M3 honest evaluation (review branch)
+
+Train a development-only champion, optionally register it and the historical model,
+then compare a candidate against the same frozen personas:
+
+```bash
+python ml-training/train.py bootstrap --register
+python ml-training/train.py candidate
+```
+
+The holdout is 44 of 218 personas; no overlap with development. New scores appear
+in `ml-training/m3-output/champion/report.json` and `candidate/report.json`.
+Historical random-split accuracy is not generalization. The data is consistent
+with a templated source and lacks external validation. Eligibility requires
+a 2 percentage-point gain, positive paired-bootstrap lower bound and serving parity.
+Promotion is disabled until M4; existing serving model files are untouched.
+
 ## Input Scale
 
 `POST /predict` expects all 14 feature values in UI scale `[1, 10]`.  
