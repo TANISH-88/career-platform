@@ -1,0 +1,3 @@
+# Development-only additions
+
+Never edit the frozen cleaned CSV or holdout manifest. Add reviewed CSVs here and list them in addendum_v1.json with path (file name only), sha256, and source (nonempty provenance). Each CSV must use exactly the cleaned CSV columns, unique integer row_id values above 10178, valid role labels, integer technical scores 0–6, personality scores 0–1 and persona_id computed by the six-decimal SHA1 rule. Holdout personas and exact duplicates are forbidden. Existing development personas may receive new distinct observations. No real new data is supplied; the empty manifest is valid. Tests use synthetic fixtures only. Version and review changes in Git; the candidate report records the digest.
