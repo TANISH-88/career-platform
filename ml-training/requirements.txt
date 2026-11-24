@@ -5,6 +5,8 @@
 
 # Data versioning
 dvc==3.51.2
+# DVC 3.51.2 imports gitwildmatch internals removed in pathspec 1.x.
+pathspec==0.12.1
 
 # Notebook execution (optional, for CI)
 jupyter==1.0.0
