@@ -44,11 +44,10 @@ Promotion is disabled until M4; existing serving model files are untouched.
 ### Candidate-only GitHub Actions workflow
 
 [M3 candidate training](https://github.com/TANISH-88/career-platform/actions/workflows/m3-candidate.yml)
-runs on matching pushes and supports manual dispatch after the workflow is on the default branch.
-The champion reference is frozen row-aligned predictions from a one-time reproduction
+runs on matching pushes and supports manual dispatch after the workflow is on the default branch. The default CLI (python ml-training/train.py) runs candidate-only; use a fresh output directory.
+The champion reference is pinned by SHA256 and contains frozen row-aligned predictions from a one-time reproduction
 of verified commit 5557227 (run 45487237769), not a retrained champion per candidate.
-A changed CSV without a reviewed new manifest/reference fails validation; intentionally
-changing the evaluation dataset requires a new reviewed evaluation version.
+The original cleaned CSV and holdout remain frozen. Reviewed development-only additions use data/development/addendum_v1.json; validation rejects overlaps and duplicates. The gate uses eleven matched seeds and an equal-persona bootstrap plus macro-F1 non-regression. Changing the evaluation dataset requires a separately reviewed evaluation version.
 Candidate rejection is a successful workflow outcome; validation or training crashes fail
 the job. Candidate artifacts and report are retained for 14 days. No registry write,
 approval email, promotion or deployment.
