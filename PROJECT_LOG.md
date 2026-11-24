@@ -10,6 +10,14 @@
 
 ---
 
+### Entry 14 — 2026-11-25 | M3 Part A — Dataset and frozen holdout
+
+- CP13/CP14 technically verified on m3/part-a-corrected; reviewer sign-off pending.
+- Evidence: 0846c90 | CI #51 -> 49 backend tests passed, 4 M3 tests passed, 3 legacy DVC tests skipped; parity 0/160 and 0/480 mismatches.
+- Full report: docs/m3/part-a-verification.md. Main untouched. Owner authorized Part B.
+
+---
+
 ### Entry 13 — 2026-11-19 | Antigravity Agent | Correction to Entry 12 — Distance Space and Test-Count Explanation
 
 - **Checkpoints:** No checkpoints ticked (correction entry only).
