@@ -312,7 +312,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** train.py split into importable functions; original model registered as v1 champion.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
 
 ---
 
@@ -320,7 +320,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Champion score measured on the frozen holdout (not hardcoded).
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
 
 ---
 
@@ -328,7 +328,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Promotion gate: paired comparison on the same folds beats seed noise; parity check included.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — Part B implementation; CI evidence required.
 
 ---
 
