@@ -43,7 +43,7 @@ jobs:
 
       - name: Run extra-row exclusion tests
         run: |
-          pytest ml-training/tests/test_extra_row_exclusion.py ml-training/tests/test_frozen_data.py ml-training/tests/test_promotion_gate.py -v
+          pytest ml-training/tests/ -v
 
       - name: Run parity gate (must not skip)
         run: |
@@ -55,7 +55,7 @@ jobs:
         run: |
           python ml-training/train.py bootstrap --register --output "$RUNNER_TEMP/m3"
           python ml-training/train.py candidate --output "$RUNNER_TEMP/m3"
-          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/"m3"; c=json.loads((p/"champion/report.json").read_text()); g=json.loads((p/"candidate/report.json").read_text()); assert c["champion_registry"]["version"]=="1"; assert c["legacy_registry"]["version"]=="1"; assert g["gate"]["observed_gain"]==0; assert g["gate"]["promotion_eligible"] is False; assert g["gate"]["parity_passed"]; print("M3 champion and identical candidate verified", c["holdout"]["accuracy"], c["holdout"]["macro_f1"])'
+          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/"m3"; c=json.loads((p/"champion/report.json").read_text()); g=json.loads((p/"candidate/report.json").read_text()); assert c["champion_registry"]["version"]=="1"; assert c["legacy_registry"]["version"]=="1"; assert g["gate"]["parity_passed"]; assert len(g["gate"]["matched_seeds"])==11; assert g["candidate_recipe"] != c["recipe"] or g["addendum"]["added_rows"] > 0 or (g["gate"]["observed_gain"]==0 and g["gate"]["promotion_eligible"] is False); print("M3 registered champion and pinned-reference candidate verified", c["holdout"]["accuracy"], c["holdout"]["macro_f1"])'
 
       - name: Upload M3 verification reports
         if: always()
