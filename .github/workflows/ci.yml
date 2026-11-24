@@ -43,7 +43,7 @@ jobs:
 
       - name: Run extra-row exclusion tests
         run: |
-          pytest ml-training/tests/test_extra_row_exclusion.py -v
+          pytest ml-training/tests/test_extra_row_exclusion.py ml-training/tests/test_frozen_data.py -v
 
       - name: Run parity gate (must not skip)
         run: |
