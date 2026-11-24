@@ -9,5 +9,5 @@
 - Holdout: 44/218 personas (740 rows), development 174 personas (2,376 rows). Rank personas by SHA256 of seed 42, colon, persona ID. Visit roles in ascending persona count, breaking ties by role name; select first ranked eligible persona if role not covered, ensuring every role retains a development persona. Fill remaining slots in rank order using same constraint. A shared persona spans Business Analyst and Customer Service Executive.
 - Original quota (2 holdout / 8 dev per role) is impossible; owner approved at least one per role on both sides. API Specialist has only two personas. Per-role scores will be uncertain.
 - Manifest binds exact CSV bytes with SHA256. Never regenerate the holdout during training. Part B will connect train.py to load_frozen_split.
-- Current checks are pending CI verification; no promotion or deployment.
+- CI #51 passed all four frozen-data tests; see docs/m3/part-a-verification.md. No promotion or deployment.
 
