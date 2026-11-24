@@ -1,11 +1,11 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 12/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 14/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3–M5, P1–P4, S1–S5: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP14): 2 ✅ | remaining: 0 ✅
 >
-> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 has NOT been started.
+> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 Part A technically verified on the review branch.
 
 ---
 
@@ -289,14 +289,14 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 ## M3 — Honest evaluation and training
 
-> M3 Part A is in progress on a review branch. CP13 and CP14 require passing verification.
+> M3 Part A verified on the review branch; reviewer sign-off pending.
 > Do not start M3 until M2 is fully approved by the reviewer.
 
 ### CP13 — Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns
 
 **Goal:** Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns.
 
-**Status:** ⏳ PENDING VERIFICATION — 3,116 rows, 218 personas, 16 roles; see data/cleaned/README.md.
+**Status:** ✅ DONE (technical verification on review branch) — CI #51, cleaned-source and label-order tests passed. 3,116 rows, 218 personas, 16 roles. See docs/m3/part-a-verification.md.
 
 ---
 
@@ -304,7 +304,7 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Frozen holdout of unseen personas saved in git.
 
-**Status:** ⏳ PENDING VERIFICATION — 44 holdout personas, 174 development personas; frozen manifest committed.
+**Status:** ✅ DONE (technical verification on review branch) — CI #51, frozen split and tampered-data tests passed. 44 holdout personas, 174 development personas. See docs/m3/part-a-verification.md.
 
 ---
 
