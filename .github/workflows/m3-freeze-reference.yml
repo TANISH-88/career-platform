@@ -3,7 +3,6 @@ name: M3 freeze champion reference
 on:
   workflow_dispatch:
   push:
-    branches: [m3/part-a-corrected]
     paths: ['.github/workflows/m3-freeze-reference.yml']
 
 permissions:
