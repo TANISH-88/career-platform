@@ -3,16 +3,72 @@ stages:
   train:
     cmd: python ml-training/train.py
     deps:
-    - path: data/CareerMapping1.csv
+    - path: backend/fastapi/app/config/constants.py
       hash: md5
-      md5: 7192e48953b32a0448b020198591567b
-      size: 1775959
+      md5: 91e6fa7294d22a526b4867a5531f4482
+      size: 1309
+    - path: backend/fastapi/app/services/feature_mapper.py
+      hash: md5
+      md5: 0f4cc0bba047573cb0bc8e405f0fa88f
+      size: 2975
+    - path: backend/fastapi/app/services/predictor.py
+      hash: md5
+      md5: 2df0ad7b288440985d5ca52b9c6d7683
+      size: 1001
+    - path: backend/fastapi/tests/fixtures/sample_careers.csv
+      hash: md5
+      md5: 2fb2be0769e404609e2502334735820f
+      size: 27325
+    - path: data/cleaned/careers_clean.csv
+      hash: md5
+      md5: ebb683775d0f44e11446227dc666badf
+      size: 602763
+    - path: data/cleaned/holdout_v1.json
+      hash: md5
+      md5: 630a7022db0179bd5a672e7b7b25ba75
+      size: 4061
+    - path: data/development
+      hash: md5
+      md5: eeab088fc20685dac6b7c2cdef9732bb.dir
+      size: 761
+      nfiles: 2
+    - path: ml-training/champion-reference.json
+      hash: md5
+      md5: a451ba2738b6c8458c798451894f7a78
+      size: 13839
+    - path: ml-training/check_parity.py
+      hash: md5
+      md5: f82fb0ef30ee67a5e23ad6e198256cc1
+      size: 4788
+    - path: ml-training/data_split.py
+      hash: md5
+      md5: c679520e30559c45266408b0226880fc
+      size: 2254
+    - path: ml-training/development_data.py
+      hash: md5
+      md5: bd582fb47ba704188b7fa9f12467bead
+      size: 2911
+    - path: ml-training/promotion_gate.py
+      hash: md5
+      md5: 451e9284541a7c583a33cbea1d7b08f0
+      size: 2039
+    - path: ml-training/robust_gate.py
+      hash: md5
+      md5: de4292f36d9edbb04148b6f23c148e8b
+      size: 2639
     - path: ml-training/train.py
       hash: md5
-      md5: ff5a1d62415603b0cb5a2aa80b35f8a7
-      size: 12128
+      md5: 1f6f4595b779a65429b8fc2e5fc0c243
+      size: 13754
+    - path: ml-training/train_candidate_ci.py
+      hash: md5
+      md5: 904a3ffd8d684f18d10bad43ed8884fa
+      size: 5505
     params:
       ml-training/params.yaml:
+        holdout_persona_fraction: 0.2
+        holdout_seed: 42
+        min_gain: 0.02
         random_seed: 42
         rf_params:
           bootstrap: true
@@ -21,25 +77,9 @@ stages:
           min_samples_leaf: 7
           min_samples_split: 7
           n_estimators: 200
-        test_size: 0.2
     outs:
-    - path: ml-training/artifacts/frf.pkl
+    - path: ml-training/m3-output/candidate
       hash: md5
-      md5: 240a10e06c1e5b3cea055fb0533ef1b1
-      size: 12567385
-    - path: ml-training/artifacts/pca.pkl
-      hash: md5
-      md5: 5856ac01a73ac36f91740526eb172ef0
-      size: 1095
-    - path: ml-training/artifacts/pipeline.pkl
-      hash: md5
-      md5: 9d9c4a23504321b9bd18e4c269d8f700
-      size: 12577515
-    - path: ml-training/artifacts/scaler.pkl
-      hash: md5
-      md5: 6fad383c8a58d8c243394fd082dff3ef
-      size: 1047
-    - path: ml-training/metrics.json
-      hash: md5
-      md5: 450b2bc2210bbf5717e843014864f83d
-      size: 210
+      md5: 3949bbcdfe0cce04643f56e9ef108be4.dir
+      size: 11540361
+      nfiles: 5
