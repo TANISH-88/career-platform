@@ -1,14 +1,13 @@
 # Model Card — Career Prediction Random Forest (career-rf)
 
-## M3 evaluation protocol (implementation pending CI evidence)
+## M3 evaluation protocol (CI #66 verified)
 
 The earlier sections below are historical experiments, not current champion scores.
 M3 uses 3,116 deduplicated rows (218 personas, 16 roles). The frozen holdout contains
 44 personas / 740 rows; development contains 174 personas / 2,376 rows.
 Scaler, PCA and RF fit only on development personas. The notebook RF recipe is fixed;
 the historical model is separately identified and is not a valid unseen-persona baseline.
-The new champion accuracy and macro-F1 must be taken from generated CI reports,
-not inferred from the old random split. The 0.906 random-split result reflects
+CI #66 (commit 5557227) measured champion holdout accuracy **0.1973 (146/740)** and macro-F1 **0.1664**. The identical candidate scored 0.1973; paired 90% gain interval [0,0], parity passed, promotion rejected. MLflow registered the champion and historical model separately as version 1 in an isolated CI registry. See docs/m3/part-b-verification.md. The 0.906 random-split result reflects
 memorization of overlapping profiles, not performance on unseen people.
 All four technical features have identical raw marginal distributions and pairwise
 correlations approximately 0.6391, strongly consistent with a generated or templated
@@ -21,6 +20,17 @@ a positive lower bound of a paired 90% persona-cluster bootstrap interval (2,000
 resamples, seed 42), and serving parity. No automatic deployment.
 Repeated candidate evaluation can overfit this fixed holdout; use development-only
 grouped CV for tuning and reserve holdout for final comparison.
+
+### Historical deduplicated grouped audit (PROJECT_LOG.md, Step 5)
+
+| Model | Five-fold grouped accuracy |
+|---|---:|
+| RF full pipeline | 0.2561 ± 0.0514 |
+| Logistic regression (personality only) | 0.2605 ± 0.0868 |
+| 1-NN (personality only) | 0.2362 ± 0.0481 |
+| RF technical only | 0.2105 ± 0.0244 |
+
+Earlier majority-class baseline: 0.112965 (different historical evaluation; not the frozen holdout baseline). These audits use different splits from M3, so they are not directly comparable to the new champion.
 
 ## Historical data and evaluation
 
