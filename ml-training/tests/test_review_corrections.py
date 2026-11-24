@@ -75,3 +75,15 @@ def test_matched_seed_guard():
     stable = np.tile(new, (len(SEEDS), 1))
     assert robust_gate(y, old, new, groups, baseline, stable, True)["promotion_eligible"]
     assert not robust_gate(y, old, new, groups, baseline, stable, False)["promotion_eligible"]
+
+
+def test_macro_f1_collapse_rejected():
+    y = np.tile([0]*8 + [1]*2, 44)
+    groups = np.repeat(np.arange(44), 10)
+    old = np.tile([0]*4 + [1]*6, 44)
+    new = np.zeros_like(y)
+    report = robust_gate(y, old, new, groups, np.tile(old, (len(SEEDS), 1)),
+                         np.tile(new, (len(SEEDS), 1)), True)
+    assert report["single_seed_eligible"]
+    assert report["primary_macro_f1_gain"] < 0
+    assert not report["promotion_eligible"]
