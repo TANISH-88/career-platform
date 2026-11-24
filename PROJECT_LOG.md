@@ -10,6 +10,14 @@
 
 ---
 
+### Entry 15 — 2026-11-25 | M3 Part B — Champion, holdout and promotion gate
+
+- CP15–CP17 technically verified in isolated CI #66, commit 5557227. Reviewer sign-off pending.
+- Evidence: champion accuracy 0.1972972972972973, macro-F1 0.16639113268278288; identical candidate gain 0, interval [0,0], parity true, promotion_eligible false. Both registry versions 1.
+- Full report: docs/m3/part-b-verification.md. No serving artifact writes or deployment.
+
+---
+
 ### Entry 14 — 2026-11-25 | M3 Part A — Dataset and frozen holdout
 
 - CP13/CP14 technically verified on m3/part-a-corrected; reviewer sign-off pending.
