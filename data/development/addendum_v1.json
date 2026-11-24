@@ -1,4 +1,10 @@
 {
   "version": 1,
-  "files": []
+  "files": [
+    {
+      "path": "synthetic_test_only.csv",
+      "sha256": "d6bc4b9e98406f68bab71e5efbc00f2794a3e1be740009fc4d5e8ebb56169f9d",
+      "source": "SYNTHETIC TEST FIXTURE ONLY — never merge or use as real training data"
+    }
+  ]
 }
