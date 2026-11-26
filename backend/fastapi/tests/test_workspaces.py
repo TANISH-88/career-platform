@@ -443,3 +443,57 @@ def test_resume_version_upload_limits_and_rate_limiting(workspace_client):
         ).status_code
         == 429
     )
+
+
+def test_concurrent_resume_version_limit_enforced(workspace_client):
+    """Concurrent uploads near capacity must never exceed MAX_RESUME_VERSIONS_PER_WORKSPACE."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    client, session_factory = workspace_client
+
+    class _SlowStubParser(_StubResumeParser):
+        def extract_skills(self, text: str) -> ParsedResumeResponse:
+            time.sleep(0.05)
+            return super().extract_skills(text)
+
+    client.app.state.resume_parser = _SlowStubParser()
+    headers = _register_and_login(client, "concurrent_rv@example.com")
+    ws_id = client.post("/workspaces", json={"name": "Concurrent"}, headers=headers).json()["id"]
+
+    # Fill to MAX - 1 sequentially
+    for idx in range(MAX_RESUME_VERSIONS_PER_WORKSPACE - 1):
+        r = client.post(
+            f"/workspaces/{ws_id}/resume-versions",
+            files={"file": (f"v{idx}.pdf", b"%PDF", "application/pdf")},
+            data={"consent": "true"},
+            headers=headers,
+        )
+        assert r.status_code == 201
+
+    # Fire 6 concurrent uploads simultaneously; all 6 pass pre-LLM capacity check,
+    # but atomic lock + re-check must allow only 1 to commit and reject 5 with 409.
+    def _upload(i: int) -> int:
+        resp = client.post(
+            f"/workspaces/{ws_id}/resume-versions",
+            files={"file": (f"race_{i}.pdf", b"%PDF", "application/pdf")},
+            data={"consent": "true"},
+            headers=headers,
+        )
+        return resp.status_code
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        statuses = list(pool.map(_upload, range(6)))
+
+    assert statuses.count(201) == 1
+    assert statuses.count(409) == 5
+
+    with session_factory() as db:
+        rows = db.scalars(
+            select(ResumeVersion)
+            .where(ResumeVersion.workspace_id == ws_id)
+            .order_by(ResumeVersion.version_number.asc())
+        ).all()
+        assert len(rows) == MAX_RESUME_VERSIONS_PER_WORKSPACE
+        assert [row.version_number for row in rows] == list(
+            range(1, MAX_RESUME_VERSIONS_PER_WORKSPACE + 1)
+        )

@@ -57,3 +57,30 @@ approval email, promotion or deployment.
 `POST /predict` expects all 14 feature values in UI scale `[1, 10]`.  
 The serving layer converts them to training units (`technical: [0, 6]`, `personality: [0, 1]`) before passing to the model.  
 See [`ml-training/MODEL_CARD.md`](ml-training/MODEL_CARD.md#input-units-serving-boundary) for the conversion formula and history.
+
+## Backend Database, Migrations & Environment Setup
+
+### Database & Alembic Migrations
+
+The FastAPI backend uses SQLAlchemy 2.x + Alembic (`backend/fastapi/alembic/`). By default in local development it uses SQLite (`sqlite:///./app.db`), and supports PostgreSQL in production via `DATABASE_URL` (with SQLite `PRAGMA foreign_keys=ON` enforced automatically).
+
+```bash
+cd backend/fastapi
+alembic upgrade head
+```
+
+### Environment Variables
+
+**Backend (`backend/.env` or process environment):**
+- `GEMINI_API_KEY` *(required on startup)* — Gemini API key for resume skill extraction (fail-closed if missing).
+- `JWT_SECRET` *(required in `production`)* — HMAC signing secret for JWT access tokens (an ephemeral per-process secret is generated in non-production if unset).
+- `ENVIRONMENT` — `development`, `production`, or `test` (fail-closed if unset when `DATABASE_URL` is non-SQLite).
+- `DATABASE_URL` — SQLAlchemy database URL (default: `sqlite:///./app.db`).
+- `GOOGLE_CLIENT_ID` — Google OAuth 2.0 Web Client ID for verifying Google ID tokens (`POST /auth/google`, `POST /auth/google/link`).
+- `CORS_ALLOWED_ORIGINS` — Comma-separated allowed origins (default: `http://localhost:3000`).
+- `COOKIE_SECURE` / `COOKIE_SAMESITE_NONE` — Refresh cookie security flags (`COOKIE_SECURE` is forced `true` in `production`).
+- `MLFLOW_ENABLED` — Set `false` locally to skip MLflow baseline registration on startup.
+
+**Frontend (`my-app/.env.local`):**
+- `NEXT_PUBLIC_GOOGLE_CLIENT_ID` — Google OAuth Web Client ID (enables the Google Sign-In button on `/login` and `/register`).
+- `BACKEND_URL` — Origin used by the Next.js `/api/*` same-origin proxy (default: `http://127.0.0.1:8000`).

@@ -16,7 +16,7 @@
 - Navigated to `http://localhost:3000/login` — confirmed live Google Sign-In button rendered (fallback text not shown).
 - Completed Google OAuth sign-in flow:
   - `POST /api/auth/google` -> `200 OK`
-  - `GET /api/auth/me` -> `200 OK` (`tanishpalsingh5095@gmail.com`)
+  - `GET /api/auth/me` -> `200 OK` (`<verified-google-test-account>`)
   - Redirected to `/workspaces`; navbar displayed authenticated controls (`FuturePredict / Quick Predict / Workspaces / Sign out`).
 - Database verification (`users` table): confirmed `google_sub` is populated and `password_hash` is `NULL` (Google-only account).
 
@@ -57,7 +57,7 @@
 - **Status:** PASS
 - Stopped the FastAPI uvicorn daemon, inspected `partc_verify.db` directly, restarted uvicorn against the same `partc_verify.db`, and verified `GET /` (`{"message":"Backend running"}`).
 - Confirmed persisted rows in SQLite after restart:
-  - `users`: `('tanishpalsingh5095@gmail.com', google_sub IS NOT NULL = 1, password_hash IS NULL = 1)`
+  - `users`: `('<verified-google-test-account>', google_sub IS NOT NULL = 1, password_hash IS NULL = 1)`
   - `workspaces`: `('3aa34582-12a8-4982-840f-d40e7acb7833', 'Part C Gemini Verify')`
   - `resume_versions`: `('87b22cc4-61f1-407d-bbca-afaad3bf6aa1', version_number = 1, 'Application Support Engineer', 'frf_v1', 'gemini-3.5-flash-lite')`
 

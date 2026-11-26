@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
+import threading
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config.constants import MAX_RESUME_VERSIONS_PER_WORKSPACE
@@ -29,6 +31,19 @@ class ResumeVersionLimitError(Exception):
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+_workspace_resume_locks_guard = threading.Lock()
+_workspace_resume_locks: dict[str, threading.Lock] = {}
+
+
+def _get_workspace_resume_lock(workspace_id: str) -> threading.Lock:
+    with _workspace_resume_locks_guard:
+        lock = _workspace_resume_locks.get(workspace_id)
+        if lock is None:
+            lock = threading.Lock()
+            _workspace_resume_locks[workspace_id] = lock
+        return lock
 
 
 def create_workspace(db: Session, user_id: str, name: str) -> Workspace:
@@ -206,34 +221,60 @@ def create_workspace_resume_version(
     """Persist derived-only LLM skill scores and ML prediction for a workspace resume upload.
 
     Never accepts or stores raw file bytes, filenames, or extracted plaintext.
+    Serializes per-workspace writes so concurrent uploads cannot exceed MAX_RESUME_VERSIONS_PER_WORKSPACE.
     """
-    workspace = ensure_resume_version_capacity(db, workspace_id, user_id)
-
     features = feature_mapper.transform(parsed_skills)
     result = predictor.predict(features)
-
-    max_ver = db.scalar(
-        select(func.max(ResumeVersion.version_number)).where(
-            ResumeVersion.workspace_id == workspace.id
-        )
-    ) or 0
-
-    now = _utcnow()
     top_k_payload = [role.model_dump() for role in result.top_3_roles]
-    version = ResumeVersion(
-        workspace_id=workspace.id,
-        version_number=int(max_ver) + 1,
-        parsed_skills=[float(v) for v in parsed_skills],
-        predicted_role=result.predicted_role,
-        top_k=top_k_payload,
-        model_version=model_version,
-        parser_model=parser_model,
-    )
-    db.add(version)
-    workspace.updated_at = now
-    workspace.last_opened_at = now
-    db.commit()
-    db.refresh(version)
+
+    lock = _get_workspace_resume_lock(workspace_id)
+    with lock:
+        workspace = db.scalar(
+            select(Workspace)
+            .where(Workspace.id == workspace_id, Workspace.user_id == user_id)
+            .with_for_update()
+        )
+        if workspace is None:
+            raise WorkspaceNotFoundError("Workspace not found")
+
+        existing_count = db.scalar(
+            select(func.count())
+            .select_from(ResumeVersion)
+            .where(ResumeVersion.workspace_id == workspace.id)
+        ) or 0
+        if existing_count >= MAX_RESUME_VERSIONS_PER_WORKSPACE:
+            raise ResumeVersionLimitError(
+                f"Resume version limit reached (max {MAX_RESUME_VERSIONS_PER_WORKSPACE} per workspace). "
+                "Delete an existing version before uploading another."
+            )
+
+        max_ver = db.scalar(
+            select(func.max(ResumeVersion.version_number)).where(
+                ResumeVersion.workspace_id == workspace.id
+            )
+        ) or 0
+
+        now = _utcnow()
+        version = ResumeVersion(
+            workspace_id=workspace.id,
+            version_number=int(max_ver) + 1,
+            parsed_skills=[float(v) for v in parsed_skills],
+            predicted_role=result.predicted_role,
+            top_k=top_k_payload,
+            model_version=model_version,
+            parser_model=parser_model,
+        )
+        db.add(version)
+        workspace.updated_at = now
+        workspace.last_opened_at = now
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            raise ResumeVersionLimitError(
+                "Concurrent resume upload conflict; please retry."
+            ) from exc
+        db.refresh(version)
 
     return ResumeVersionResponse(
         id=version.id,
