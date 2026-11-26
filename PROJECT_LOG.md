@@ -26,7 +26,7 @@
 - **Tests & Build:**
   - Backend: `backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.63s` (including new CP21 privacy, isolation, cascade, consent, 409/413/415/429 tests); `ruff check --select E9,F63,F7,F82 backend/fastapi` -> `All checks passed!`.
   - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`, `✓ Generating static pages (7/7)`.
-- **Evidence:** `pending commit | pytest -> 75 passed, 16 warnings | npm test -> 10 passed, 0 failed | npm run build -> ✓ Compiled successfully | CI: verifying on push`
+- **Evidence:** `0561e21 | pytest -> 75 passed, 16 warnings | ruff -> All checks passed! | npm test -> 10 passed, 0 failed | npm run build -> ✓ Compiled successfully | CI: https://github.com/TANISH-88/career-platform/actions/runs/45880878943 (Frontend 140119622893, Backend 140119623360, Docker 140120281470 — all success)`
 
 ---
 
