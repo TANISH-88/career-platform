@@ -19,7 +19,7 @@ const scoreFields = [
   ["Self-Transcendence", "self_transcendence"],
 ];
 
-export default function ResumeUpload() {
+export default function ResumeUpload({ onApplyScores = null }) {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("Upload a PDF or DOCX resume to score it.");
   const [result, setResult] = useState(null);
@@ -39,7 +39,7 @@ export default function ResumeUpload() {
     setResult(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/parse-resume", {
+      const response = await fetch("/api/parse-resume", {
         method: "POST",
         body: formData,
       });
@@ -58,6 +58,17 @@ export default function ResumeUpload() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function applyScoresToForm() {
+    if (!result || typeof onApplyScores !== "function") return;
+    const mapped = {};
+    for (const [, key] of scoreFields) {
+      if (result[key] !== undefined && result[key] !== null) {
+        mapped[key] = String(result[key]);
+      }
+    }
+    onApplyScores(mapped);
   }
 
   return (
@@ -98,13 +109,26 @@ export default function ResumeUpload() {
         <p className="mt-4 text-sm text-gray-600">{status}</p>
 
         {result ? (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {scoreFields.map(([label, key]) => (
-              <div key={key} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">{label}</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900">{Number(result[key]).toFixed(1)}</p>
+          <div className="mt-8">
+            {typeof onApplyScores === "function" ? (
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={applyScoresToForm}
+                  className="rounded-xl border border-indigo-600 px-4 py-2 text-sm font-semibold text-indigo-600 hover:bg-indigo-50"
+                >
+                  Apply parsed scores to inputs
+                </button>
               </div>
-            ))}
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {scoreFields.map(([label, key]) => (
+                <div key={key} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">{label}</p>
+                  <p className="mt-2 text-2xl font-bold text-gray-900">{Number(result[key]).toFixed(1)}</p>
+                </div>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

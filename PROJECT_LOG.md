@@ -10,6 +10,26 @@
 
 ---
 
+### Entry 23 — 2026-11-26 | P1 Part B — Frontend Auth, Workspaces & Same-Origin Proxy
+
+- **Same-Origin Proxy & Env Config:**
+  - Moved Next.js config to root [my-app/next.config.js](my-app/next.config.js) (removed stale `my-app/app/next.config.js`) with `rewrites()` proxying `/api/:path*` to `${BACKEND_URL:-http://127.0.0.1:8000}/:path*`.
+  - Updated [.env.example](.env.example) with `BACKEND_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+- **Secure Session & Single-Flight Refresh (`my-app/lib/apiClient.mjs`, `my-app/app/components/AuthContext.jsx`):**
+  - Access tokens are stored strictly in JS/React closure memory (never `localStorage` or `sessionStorage`).
+  - `refreshAccessToken()` deduplicates concurrent calls via `inflightRefreshPromise`, guaranteeing at most one `POST /api/auth/refresh` request with `credentials: "include"` and `X-Requested-With: XMLHttpRequest` across concurrent `401` responses.
+  - Handles session expiry cleanly (`SessionExpiredError` + `SessionExpired` banner on prior authenticated failure without false positives during anonymous page loads).
+- **Auth & Google Account Linking (`app/login/page.js`, `app/register/page.js`, `app/components/GoogleSignInButton.jsx`):**
+  - Implemented email/password login & registration, Google Identity Services sign-in (`POST /api/auth/google`), and two-step ownership-verified account linking when `/auth/google` returns `409 Conflict` (`POST /api/auth/google/link` with Google ID token + current password).
+- **Workspaces, Continuation & Anonymous Preservation (`app/workspaces/page.js`, `app/workspaces/[id]/page.js`, `app/components/ContinuePopup.jsx`, `app/page.js`, `app/components/Navbar.jsx`, `app/components/ResumeUpload.jsx`):**
+  - Workspace creation, active/archived listing (`include_archived` toggle), continuation (`GET /api/workspaces/{id}` updating `last_opened_at`), archiving (`POST /api/workspaces/{id}/archive`), restoration (`POST /api/workspaces/{id}/unarchive`), deletion, workspace skill/prediction submission (`POST /api/workspaces/{id}/predict`), history restoration into `<Features />`, and `404` isolation handling.
+  - Added `"Continue where you left off"` popup (`ContinuePopup.jsx` + `lib/continuePopupLogic.mjs`) backed by `GET /api/workspaces/last-active`.
+  - Preserved `/` anonymous predictions (`POST /api/predict`) and `/parse-resume` (`POST /api/parse-resume`) via `/api/*` with existing UI intact.
+- **Tests & CI:** Added `my-app/tests/authAndWorkspaces.test.mjs` (`npm test` -> `6 passed, 0 failed`), wired `npm test` into `.github/workflows/ci.yml` (`Frontend Build` job), and verified `npm run build` (`7/7` static/dynamic routes compiled cleanly).
+- **Evidence:** `pending commit | npm test -> # pass 6, # fail 0 | npm run build -> ✓ Compiled successfully | CI: verifying on push`
+
+---
+
 ### Entry 22 — 2026-11-26 | P1 Part A2.2 — Ownership Proof for Google Linking & Atomic Refresh Rotation
 
 - **Corrections:**

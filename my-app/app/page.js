@@ -1,33 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import Features from "./components/Features";
+import Hero from "./components/Hero";
 import ResumeUpload from "./components/ResumeUpload";
+import { useAuth } from "./components/AuthContext";
+import { ORDERED_SKILL_KEYS } from "../lib/continuePopupLogic.mjs";
 
 export default function Home() {
   const [values, setValues] = useState({});
   const [result, setResult] = useState("");
-
-  const orderedKeys = [
-    "computer_architecture",
-    "programming_skills",
-    "project_management",
-    "communication_skills",
-    "openness",
-    "conscientiousness",
-    "extraversion",
-    "agreeableness",
-    "emotional_range",
-    "conversation",
-    "openness_change",
-    "hedonism",
-    "self_enhancement",
-    "self_transcendence",
-  ];
+  const { isAuthenticated } = useAuth();
 
   async function testPrediction() {
     // Build array in correct order
-    const finalValues = orderedKeys.map((key) => {
+    const finalValues = ORDERED_SKILL_KEYS.map((key) => {
       const rawValue = values[key];
       return rawValue === "" || rawValue === undefined ? NaN : Number(rawValue);
     });
@@ -39,7 +27,8 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/predict", {
+      // Anonymous prediction remains unauthenticated and stateless via same-origin proxy
+      const response = await fetch("/api/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ values: finalValues }),
@@ -47,17 +36,18 @@ export default function Home() {
 
       const data = await response.json();
       setResult(response.ok ? data.predicted_role : data.detail || "Prediction failed");
-    } catch (err) {
-      setResult("Connection error: backend server is not running on http://127.0.0.1:8000");
+    } catch {
+      setResult("Connection error: backend server is unreachable");
     }
   }
 
   return (
     <div>
+      <Hero />
       <Features values={values} setValues={setValues} />
-      <ResumeUpload />
+      <ResumeUpload onApplyScores={(mapped) => setValues((prev) => ({ ...prev, ...mapped }))} />
 
-      <div className="text-center mt-10">
+      <div className="text-center mt-10 pb-16">
         <button
           onClick={testPrediction}
           className="px-6 py-3 bg-black text-white rounded-lg text-lg"
@@ -67,6 +57,26 @@ export default function Home() {
 
         <p className="mt-4 text-xl font-semibold">
           {result || "No input provided"}
+        </p>
+
+        <p className="mt-3 text-sm text-gray-500">
+          {isAuthenticated ? (
+            <>
+              Anonymous quick prediction above. Want to save history?{" "}
+              <Link href="/workspaces" className="font-semibold text-indigo-600 hover:underline">
+                Open a workspace
+              </Link>
+              .
+            </>
+          ) : (
+            <>
+              Sign in or{" "}
+              <Link href="/register" className="font-semibold text-indigo-600 hover:underline">
+                create an account
+              </Link>{" "}
+              to save predictions in workspaces.
+            </>
+          )}
         </p>
       </div>
     </div>
