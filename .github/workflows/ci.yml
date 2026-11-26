@@ -81,10 +81,11 @@ jobs:
           cache: "npm"
           cache-dependency-path: my-app/package-lock.json
 
-      - name: Install and build
+      - name: Install, test, and build
         working-directory: my-app
         run: |
           npm ci
+          npm test
           npm run build
 
   docker-backend:

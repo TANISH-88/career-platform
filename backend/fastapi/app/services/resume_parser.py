@@ -7,12 +7,43 @@ import os
 
 import pdfplumber
 import docx
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from app.config.constants import GEMINI_MODEL
+from app.config.constants import GEMINI_MODEL, MAX_RESUME_BYTES
 from app.schemas.resume import ParsedResumeResponse, ResumeExtraction
+
+ALLOWED_RESUME_EXTENSIONS = {"pdf", "docx"}
+ALLOWED_RESUME_MIMES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+ORDERED_SCORE_KEYS: tuple[str, ...] = (
+    "computer_architecture",
+    "programming_skills",
+    "project_management",
+    "communication_skills",
+    "openness",
+    "conscientiousness",
+    "extraversion",
+    "agreeableness",
+    "emotional_range",
+    "conversation",
+    "openness_change",
+    "hedonism",
+    "self_enhancement",
+    "self_transcendence",
+)
+
+
+class ResumeValidationError(Exception):
+    """HTTP-mapped resume upload validation failure (no plaintext or PII attached)."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
 
 
 class UnsupportedMediaTypeError(Exception):
@@ -23,9 +54,49 @@ class GeminiUnavailableError(Exception):
     """Raised when the Gemini API call fails or times out."""
 
 
+def extract_and_score_resume(
+    *,
+    file_bytes: bytes,
+    filename: str | None,
+    content_type: str | None,
+    parser: "ResumeParser",
+) -> tuple[ParsedResumeResponse, list[float]]:
+    """Validate upload limits/type, extract text in memory, and return derived scores only.
+
+    Raw file bytes and extracted plaintext never leave this call frame or get logged.
+    """
+    if len(file_bytes) > MAX_RESUME_BYTES:
+        raise ResumeValidationError(413, "File too large. Maximum allowed size is 5 MB.")
+
+    safe_name = filename or ""
+    ext = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
+    if ext not in ALLOWED_RESUME_EXTENSIONS or content_type not in ALLOWED_RESUME_MIMES:
+        raise ResumeValidationError(
+            415, "Unsupported file type. Upload a PDF or DOCX file."
+        )
+
+    try:
+        text = parser.extract_text(file_bytes, safe_name)
+    except UnsupportedMediaTypeError as exc:
+        raise ResumeValidationError(
+            415, "Unsupported file type. Upload a PDF or DOCX file."
+        ) from exc
+    except ValueError as exc:
+        raise ResumeValidationError(422, "Resume file is empty or unreadable.") from exc
+
+    try:
+        parsed = parser.extract_skills(text)
+    except GeminiUnavailableError as exc:
+        raise ResumeValidationError(
+            502, "Skill extraction service unavailable. Please try again later."
+        ) from exc
+
+    ordered_scores = [float(getattr(parsed, key)) for key in ORDERED_SCORE_KEYS]
+    return parsed, ordered_scores
+
+
 class ResumeParser:
     def __init__(self) -> None:
-        load_dotenv()
         api_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not set")

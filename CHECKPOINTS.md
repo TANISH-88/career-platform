@@ -1,11 +1,11 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 16/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 21/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP16): 4 ✅; CP17/18 pending final reviewer approval | remaining: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP18): 6 ✅ | P1 (CP19–CP21): 3 ✅ | remaining: 0 ✅
 >
-> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 Part A technically verified on the review branch.
+> **Note on M2, M3 & P1 closure:** All 6 M2 checkpoints (CP7–CP12), all 6 M3 checkpoints (CP13–CP18), and all 3 P1 checkpoints (CP19–CP21) are verified with CI and browser evidence. P2–P3 and M4 have not been started.
 
 ---
 
@@ -336,9 +336,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Promotion gate: paired comparison on the same folds beats seed noise; parity check included.
 
-**Status:** ⏳ PENDING VERIFICATION — independent review found incomplete scope; correction verification required.
+**Status:** ✅ DONE (corrections verified in CI and recorded in `docs/m3/independent-review.md`; reviewer approval finalized).
 
-**Evidence:** 5557227 | 9 passed, 3 skipped; identical candidate gain 0, promotion_eligible false | CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127; new matched-seed and macro-F1 checks pending CI.
+**Evidence:** `d93a7b7` / `ee590e8` | 11 matched seeds, paired seed/persona bootstrap with equally weighted personas, macro-F1 non-regression, pinned reference SHA256, and parity check verified in CI #101 (`45491374320`: 49 backend passed, 14 ML passed, 3 skipped) and Candidate #14 (`45491652918`: `promotion_eligible: false`). See `docs/m3/independent-review.md`.
 
 ---
 
@@ -346,21 +346,23 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Training workflow runs on GitHub: new data produces a candidate and a report.
 
-**Status:** ⏳ PENDING VERIFICATION — independent review found incomplete scope; correction verification required.
+**Status:** ✅ DONE (corrections verified in CI and recorded in `docs/m3/independent-review.md`; reviewer approval finalized).
 
-**Evidence:** 1fa93b3 | candidate run #2 success https://github.com/TANISH-88/career-platform/actions/runs/45487376480; 1575944 | ValueError: Cleaned dataset SHA256 does not match frozen holdout | https://github.com/TANISH-88/career-platform/actions/runs/45487439466; addendum path and fresh DVC lock pending CI.
+**Evidence:** `d93a7b7` / `ee590e8` | DVC #2 (`45491639091`, actual lock committed at `d93a7b7`), candidate workflow (`45491652918`), synthetic addendum workflow (`45492166328`: parity passed, `promotion_eligible: false`), and tamper-rejection check (`45487439466`). See `docs/m3/independent-review.md` and `docs/m3/part-c-verification.md`.
 
 ---
 
 ## Product P1–P3
 
-> Product phases P1–P3 have NOT been started. All checkpoints below are ❌ NOT DONE.
+> P1 (CP19–CP21) is ✅ DONE. Product phases P2–P3 (CP22–CP23) have NOT been started (❌ NOT DONE).
 
 ### CP19 — P1 Google login and a database; data tied to the account, not the browser
 
 **Goal:** P1 Google login and a database; data tied to the account, not the browser.
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE
+
+**Evidence:** `988187d` / `22fa2c0` | SQLAlchemy + Alembic migrations (`f38e39a6071a`, `4f62965154d4`, `7e7a0f2e3301`, `d4e7bfff4973`), DB-backed refresh token rotation (`refresh_tokens`), Google OAuth (`POST /auth/google` + ownership-verified `POST /auth/google/link`), same-origin `/api/*` proxy with `HttpOnly; SameSite=Lax` cookie, zero tokens in `localStorage`/`sessionStorage`. Live Google OAuth + DB persistence across restart verified in `docs/p1/browser-verification-c.md`.
 
 ---
 
@@ -368,7 +370,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** P1 Workspaces: new, continue, archive; "continue where you left off" pop-up.
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE
+
+**Evidence:** `988187d` / `0561e21` | Per-user isolated workspaces (`404` for non-owners), create/rename/archive/restore/delete, `GET /workspaces/last-active` + `"Continue where you left off"` popup on `/workspaces` and home page. Live Chrome E2E verified in `docs/p1/browser-verification-b2.md`.
 
 ---
 
@@ -376,7 +380,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** P1 Resume versions saved; upload shows results (your model plus the LLM reading).
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE
+
+**Evidence:** `0561e21` / `22fa2c0` | Consent-gated `POST /workspaces/{id}/resume-versions`, `resume_versions` table (derived-only scores + ML prediction, zero raw bytes/filenames/plaintext stored), atomic per-workspace 10-version limit + unique `(workspace_id, version_number)` constraint, `Load into inputs`, per-version & delete-all controls. Live Gemini (`gemini-3.5-flash-lite`) + ML (`frf_v1`) verification in `docs/p1/browser-verification-c.md`; backend + frontend tests & CI green.
 
 ---
 

@@ -10,6 +10,116 @@
 
 ---
 
+### Entry 25 — 2026-11-27 | P1 Part C — Live Google Sign-In, Gemini Resume Analysis & DB Persistence
+
+- **Startup & Gemini Model Fixes (`backend/fastapi/app/services/resume_parser.py`, `backend/fastapi/app/main.py`, `backend/fastapi/app/config/constants.py`):**
+  - Removed `load_dotenv()` from `ResumeParser.__init__()` and moved it to `app/main.py` guarded by `if not os.environ.get("PYTEST_CURRENT_TEST"):`, resolving the `test_startup_fails_without_gemini_api_key` failure when `backend/.env` is present locally.
+  - Updated `GEMINI_MODEL` from `"gemini-2.5-flash-lite"` to `"gemini-3.5-flash-lite"` after live Gemini API verification returned `404 NOT_FOUND` (model retired for new keys).
+- **Live Browser Verification ([docs/p1/browser-verification-c.md](docs/p1/browser-verification-c.md)):**
+  - **Google Sign-In:** Verified live OAuth flow on `http://localhost:3000/login` (`POST /api/auth/google` -> `200`, `GET /api/auth/me` -> `200` for `<verified-google-test-account>`, `google_sub` set, `password_hash` `NULL`).
+  - **Gemini Resume Analysis:** Uploaded synthetic PDF (`synthetic_resume.pdf`) in workspace `3aa34582-12a8-4982-840f-d40e7acb7833` (`POST .../resume-versions` -> `201`), receiving `v1` with `ML: frf_v1`, `LLM: gemini-3.5-flash-lite`, `predicted_role: Application Support Engineer`, 14 non-stub Gemini-derived scores (`8.5, 9.0, 8.0, 8.5, 9.0, 9.5, 7.5, 8.0, 5.0, 8.0, 8.5, 5.0, 6.5, 7.0`), and verified `Load into inputs`.
+  - **DB Persistence & Storage Security:** Verified user, workspace, and resume version rows persisted in SQLite (`partc_verify.db`) across backend server restart; `Object.keys(localStorage)` = `[]`, `Object.keys(sessionStorage)` = `[]`; `0` console errors and `0` failed network requests on final session.
+- **Tests & Lint:**
+  - Backend: `venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.80s`; `ruff check app/ --select E9,F63,F7,F82` -> `All checks passed!`.
+  - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`.
+- **Evidence:** `22fa2c0` / `40247e1` | `pytest -> 76 passed, 16 warnings` | `ruff -> All checks passed!` | `npm test -> 10 passed, 0 failed` | CI: https://github.com/TANISH-88/career-platform/actions/runs/45890669486 (Frontend ✅, Backend ✅, Docker ✅) | PR: https://github.com/TANISH-88/career-platform/pull/4
+
+---
+
+### Entry 24 — 2026-11-27 | P1 Part B2 (CP21) — Resume Version Management, Session Fixes & Browser Verification
+
+- **Backend CP21 (`app/db/models.py`, `alembic/versions/7e7a0f2e3301_part_b2_resume_versions.py`, `app/services/workspace_service.py`, `app/routes/workspaces.py`, `app/services/resume_parser.py`, `app/routes/resume.py`, `app/services/rate_limiter.py`):**
+  - Added `resume_versions` table and `ResumeVersion` ORM model linked to `workspaces` with `CASCADE` delete, storing only sequential `version_number`, 14 `parsed_skills`, `predicted_role`, `top_k`, `model_version`, `parser_model`, and `created_at` (zero raw file bytes, filenames, or extracted plaintext stored).
+  - Extracted shared `extract_and_score_resume()` validation/parsing helper used by both `POST /parse-resume` and workspace uploads.
+  - Added workspace endpoints: `POST /workspaces/{id}/resume-versions` (per-IP/user rate limit first, `MAX_RESUME_VERSIONS_PER_WORKSPACE=10` capacity check -> `409 Conflict` before Gemini invocation, explicit `consent=true` -> `422` otherwise, 5 MB + PDF/DOCX validation), `GET /workspaces/{id}/resume-versions`, `DELETE /workspaces/{id}/resume-versions/{version_id}`, and `DELETE /workspaces/{id}/resume-versions` with `404` owner isolation.
+  - Added `rate_limit_resume` (`20 req/60s` per IP and per authenticated user) on both `/workspaces/{id}/resume-versions` and `/parse-resume`.
+- **Frontend Session Hardening & CP21 UI (`my-app/lib/apiClient.mjs`, `my-app/app/components/AuthContext.jsx`, `my-app/app/components/WorkspaceResumeVersions.jsx`, `my-app/app/workspaces/[id]/page.js`):**
+  - Added cross-tab refresh serialization via Web Locks (`navigator.locks`) and `BroadcastChannel` sync (`TOKEN_REFRESHED`, `LOGOUT`, with `.unref()` when running under Node), monotonic `sessionEpoch` to discard stale refresh responses completed after `logout()`, and delayed `401` guard to reuse already-rotated tokens without issuing duplicate `/auth/refresh` calls.
+  - Built `WorkspaceResumeVersions` UI on `/workspaces/[id]` with explicit consent checkbox gating upload, `10`-version indicator, expandable 14-skill readings + `Load into inputs`, per-version delete, and `"Delete all resume data"` confirmation.
+- **Verification & Browser Evidence ([docs/p1/browser-verification-b2.md](docs/p1/browser-verification-b2.md), [docs/p1/design.md](docs/p1/design.md)):**
+  - Live Chrome (`158.0.8127.38`) verification on `http://localhost:3000` (`next start`) + `http://127.0.0.1:8000` verified anonymous prediction, registration, workspace creation + prediction + CP21 consent-gated UI, reload session persistence via `HttpOnly; SameSite=lax` cookie refresh, `"Continue where you left off"` popup + continuation, archive/restore, sign out, and re-login with zero uncaught JS/React errors.
+  - Explicitly unverified locally: **live Google Sign-In** (local config renders `"Google Sign-In unavailable in local config (set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable)."` — covered via mocked token tests) and direct DevTools `evaluate_script` inspection of `localStorage`/`sessionStorage` (timed out on permission prompt; enforced in `apiClient.mjs` and covered by unit tests).
+- **Tests & Build:**
+  - Backend: `backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.63s` (including new CP21 privacy, isolation, cascade, consent, 409/413/415/429 tests); `ruff check --select E9,F63,F7,F82 backend/fastapi` -> `All checks passed!`.
+  - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`, `✓ Generating static pages (7/7)`.
+- **Evidence:** `0561e21 | pytest -> 75 passed, 16 warnings | ruff -> All checks passed! | npm test -> 10 passed, 0 failed | npm run build -> ✓ Compiled successfully | CI: https://github.com/TANISH-88/career-platform/actions/runs/45880878943 (Frontend 140119622893, Backend 140119623360, Docker 140120281470 — all success)`
+
+---
+
+### Entry 23 — 2026-11-26 | P1 Part B — Frontend Auth, Workspaces & Same-Origin Proxy
+
+- **Same-Origin Proxy & Env Config:**
+  - Moved Next.js config to root [my-app/next.config.js](my-app/next.config.js) (removed stale `my-app/app/next.config.js`) with `rewrites()` proxying `/api/:path*` to `${BACKEND_URL:-http://127.0.0.1:8000}/:path*`.
+  - Updated [.env.example](.env.example) with `BACKEND_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+- **Secure Session & Single-Flight Refresh (`my-app/lib/apiClient.mjs`, `my-app/app/components/AuthContext.jsx`):**
+  - Access tokens are stored strictly in JS/React closure memory (never `localStorage` or `sessionStorage`).
+  - `refreshAccessToken()` deduplicates concurrent calls via `inflightRefreshPromise`, guaranteeing at most one `POST /api/auth/refresh` request with `credentials: "include"` and `X-Requested-With: XMLHttpRequest` across concurrent `401` responses.
+  - Handles session expiry cleanly (`SessionExpiredError` + `SessionExpired` banner on prior authenticated failure without false positives during anonymous page loads).
+- **Auth & Google Account Linking (`app/login/page.js`, `app/register/page.js`, `app/components/GoogleSignInButton.jsx`):**
+  - Implemented email/password login & registration, Google Identity Services sign-in (`POST /api/auth/google`), and two-step ownership-verified account linking when `/auth/google` returns `409 Conflict` (`POST /api/auth/google/link` with Google ID token + current password).
+- **Workspaces, Continuation & Anonymous Preservation (`app/workspaces/page.js`, `app/workspaces/[id]/page.js`, `app/components/ContinuePopup.jsx`, `app/page.js`, `app/components/Navbar.jsx`, `app/components/ResumeUpload.jsx`):**
+  - Workspace creation, active/archived listing (`include_archived` toggle), continuation (`GET /api/workspaces/{id}` updating `last_opened_at`), archiving (`POST /api/workspaces/{id}/archive`), restoration (`POST /api/workspaces/{id}/unarchive`), deletion, workspace skill/prediction submission (`POST /api/workspaces/{id}/predict`), history restoration into `<Features />`, and `404` isolation handling.
+  - Added `"Continue where you left off"` popup (`ContinuePopup.jsx` + `lib/continuePopupLogic.mjs`) backed by `GET /api/workspaces/last-active`.
+  - Preserved `/` anonymous predictions (`POST /api/predict`) and `/parse-resume` (`POST /api/parse-resume`) via `/api/*` with existing UI intact.
+- **Tests & CI:** Added `my-app/tests/authAndWorkspaces.test.mjs` (`npm test` -> `6 passed, 0 failed`), wired `npm test` into `.github/workflows/ci.yml` (`Frontend Build` job), and verified `npm run build` (`7/7` static/dynamic routes compiled cleanly).
+- **Evidence:** `pending commit | npm test -> # pass 6, # fail 0 | npm run build -> ✓ Compiled successfully | CI: verifying on push`
+
+---
+
+### Entry 22 — 2026-11-26 | P1 Part A2.2 — Ownership Proof for Google Linking & Atomic Refresh Rotation
+
+- **Corrections:**
+  1. **Google linking requires proof of ownership (`app/services/auth_service.py`, `app/routes/auth.py`, `app/schemas/auth.py`):**
+     - `POST /auth/google` (`authenticate_google_user`) no longer auto-links or clears `password_hash` on email match alone. If an unlinked email/password account exists (`password_hash != NULL`), it raises `GoogleAccountConflictError` -> HTTP `409 Conflict` without modifying the account or revoking tokens.
+     - Added `POST /auth/google/link` (`link_google_to_password_account`, `GoogleLinkRequest(id_token, password)`): verifies both the Google ID token and the current account password before setting `google_sub`, clearing `password_hash = NULL`, revoking all existing `refresh_tokens`, and issuing a fresh token pair.
+  2. **Atomic DB-level refresh rotation (`app/services/auth_service.py`, `app/db/engine.py`):**
+     - `rotate_refresh_token` acquires an upfront write lock (`BEGIN IMMEDIATE` on SQLite when not already in a transaction; `SELECT ... FOR UPDATE` on row-locking DBs like PostgreSQL) plus `PRAGMA busy_timeout=5000` for SQLite, and executes a conditional atomic `UPDATE refresh_tokens SET revoked_at = :now WHERE jti_hash = :h AND revoked_at IS NULL` checking `result.rowcount`. Concurrent rotations serialize cleanly and reuse triggers global token revocation for that user.
+- **Tests & Docs:**
+  - `tests/test_auth.py`: replaced auto-link test with `test_google_login_requires_ownership_proof_for_existing_password_account` (`409` on `/auth/google`, `401` on wrong password in `/auth/google/link`, `200` on valid ownership proof) and added `test_concurrent_refresh_rotation_only_one_succeeds` (two threads racing with independent connections on file-backed SQLite; asserts `[200, 401]` and single replacement row).
+  - Updated `docs/p1/design.md` sections 3, 4, and 5.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 72 passed, 16 warnings in 26.83s ======================= | Docker CI: verifying on push`
+
+---
+
+### Entry 21 — 2026-11-26 | P1 Part A2.1 — Google Linking Fix, Missing Tests, Dockerfile Confirmation
+
+- **Scope:** Hardening fixes on top of Part A2.
+  - `app/services/auth_service.py` (`authenticate_google_user`): When `/auth/google` links to an existing email/password account, now clears `users.password_hash = NULL` and revokes **all** that user's refresh tokens before issuing new ones. Previously only `google_sub` was written.
+  - `tests/test_auth.py`: Split the single Google test into three:
+    - `test_google_login_creates_links_and_rejects_unverified` — new user created + unverified email rejected
+    - `test_google_login_rejects_wrong_audience` — wrong audience rejected
+    - `test_google_login_links_existing_clears_password_and_revokes_refresh_tokens` — registers with password, signs in via mocked Google same email, verifies `password_hash` NULL, verifies old refresh token revoked, verifies password login now fails
+  - `docs/p1/design.md`: Updated Google Login section 3 to document the password-clearing and token-revocation behavior.
+  - `infra/docker/Dockerfile.backend`: CMD confirmed as `["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]`; `${FORWARDED_ALLOW_IPS}` expanded by shell at container start. Docker Desktop service stopped on dev machine (no admin); image build verified by GitHub Actions `docker-backend` CI job.
+  - Deleted stray untracked file `ersTanishp4.venvScriptsactivate.bat` (Windows path-mangling artifact); not committed.
+- **Tests:** 71 passed (22 P1 tests: 16 auth + 6 workspaces), 16 warnings.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -> 71 passed, 16 warnings in 29.55s | CI: pending`
+
+---
+
+### Entry 20 — 2026-11-26 | P1 Part A2 — Auth Hardening & Schema Extension
+
+- **Design:** Updated `docs/p1/design.md` first with fail-closed JWT/environment rules, DB-backed refresh token rotation & reuse detection (`refresh_tokens`), same-origin Next.js proxy `SameSite=Lax` cookie + `X-Requested-With` CSRF header, `--proxy-headers` + per-IP/per-email rate limiting, Google Sign-In flow (`users.google_sub`, nullable `password_hash`), workspace archive/last-active schema, and proposed CP21 resume-version retention rules (not coded in A2).
+- **Hardening & Extensions:**
+  - `app/config/settings.py`: removed hardcoded fallback JWT secret (ephemeral `secrets.token_urlsafe(32)` in dev with warning; fail-closed `RuntimeError` if `ENVIRONMENT` unset with non-SQLite `DATABASE_URL` or `ENVIRONMENT=production` without `JWT_SECRET`).
+  - `app/db/models.py` + Alembic migration `4f62965154d4_part_a2_hardening_and_schema_extension.py`: added `refresh_tokens`, `users.google_sub` + nullable `users.password_hash`, `workspaces.archived_at` + `workspaces.last_opened_at`.
+  - `app/services/auth_service.py` & `app/routes/auth.py`: refresh token rotation, logout revocation, reuse-detection global revocation, `X-Requested-With` CSRF guard, `POST /auth/google`, per-email + per-IP rate limiting, and `SameSite=Lax` cookie (`SameSite=None` behind `COOKIE_SAMESITE_NONE` fallback).
+  - `app/services/workspace_service.py` & `app/routes/workspaces.py`: added `archive`, `unarchive`, `include_archived` filter, `last-active`, and `last_opened_at` tracking.
+  - `infra/docker/Dockerfile.backend`: added `--proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"` to `CMD`.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 69 passed, 16 warnings in 31.25s ======================= | fresh alembic upgrade head -> Running upgrade f38e39a6071a -> 4f62965154d4 | CI: pending`
+
+---
+
+### Entry 19 — 2026-11-26 | P1 Part A — Accounts & Workspaces Backend
+
+- **Design:** Added `docs/p1/design.md` with Mermaid ER diagram (`users`, `workspaces`, `skill_profiles`, `predictions`), Argon2id + PyJWT auth flow, cross-origin `HttpOnly` refresh cookie + memory-only access token decision, and follow-up note for `/parse-resume` rate limiting.
+- **Database & Migrations:** Added SQLAlchemy 2.x models (`app/db/models.py`), engine/session helpers (`app/db/engine.py`, `app/db/session.py`), and Alembic migration `f38e39a6071a_initial_p1_tables.py` (`alembic upgrade head` verified). Default `DATABASE_URL=sqlite:///./app.db` (separate from `mlflow.db`); `.gitignore` updated with `app.db` and `*.db`.
+- **Auth & Workspaces:** Added `app/config/settings.py` (production startup guard requiring `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`), `app/services/rate_limiter.py` (in-memory per-IP limiter on `/auth/login` and `/auth/register`), `app/services/auth_service.py`, `app/services/workspace_service.py`, `app/routes/auth.py`, `app/routes/workspaces.py`, and `.env.example`. `/predict` and `/parse-resume` remain unchanged and unauthenticated.
+- **Tests:** Added `tests/test_auth.py` (7 tests) and `tests/test_workspaces.py` (4 tests).
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 60 passed, 16 warnings in 21.02s ======================= | CI: pending`
+
+---
+
 ### Entry 18 — 2026-11-25 | M3 Final Task — CP15 Persistent MLflow Registration
 
 - **Scope & sync:** Synced clean local `m3/part-a-corrected` from `818b198` to `a35e5eb` (`git pull --ff-only origin m3/part-a-corrected`).
