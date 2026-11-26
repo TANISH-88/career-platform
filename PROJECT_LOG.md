@@ -22,7 +22,7 @@
 - **Tests & Lint:**
   - Backend: `venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.80s`; `ruff check app/ --select E9,F63,F7,F82` -> `All checks passed!`.
   - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`.
-- **Evidence:** `pending commit | pytest -> 75 passed, 16 warnings | ruff -> All checks passed! | npm test -> 10 passed, 0 failed`
+- **Evidence:** `22fa2c0` / `40247e1` | `pytest -> 76 passed, 16 warnings` | `ruff -> All checks passed!` | `npm test -> 10 passed, 0 failed` | CI: https://github.com/TANISH-88/career-platform/actions/runs/45890669486 (Frontend ✅, Backend ✅, Docker ✅) | PR: https://github.com/TANISH-88/career-platform/pull/4
 
 ---
 
