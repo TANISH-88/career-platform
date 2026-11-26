@@ -17,6 +17,13 @@ class GoogleLoginRequest(BaseModel):
     id_token: str = Field(min_length=1)
 
 
+class GoogleLinkRequest(BaseModel):
+    """Body for POST /auth/google/link — proves ownership of the existing account."""
+
+    id_token: str = Field(min_length=1)
+    password: str = Field(min_length=1, max_length=128)
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

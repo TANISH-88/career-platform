@@ -10,6 +10,21 @@
 
 ---
 
+### Entry 22 — 2026-11-26 | P1 Part A2.2 — Ownership Proof for Google Linking & Atomic Refresh Rotation
+
+- **Corrections:**
+  1. **Google linking requires proof of ownership (`app/services/auth_service.py`, `app/routes/auth.py`, `app/schemas/auth.py`):**
+     - `POST /auth/google` (`authenticate_google_user`) no longer auto-links or clears `password_hash` on email match alone. If an unlinked email/password account exists (`password_hash != NULL`), it raises `GoogleAccountConflictError` -> HTTP `409 Conflict` without modifying the account or revoking tokens.
+     - Added `POST /auth/google/link` (`link_google_to_password_account`, `GoogleLinkRequest(id_token, password)`): verifies both the Google ID token and the current account password before setting `google_sub`, clearing `password_hash = NULL`, revoking all existing `refresh_tokens`, and issuing a fresh token pair.
+  2. **Atomic DB-level refresh rotation (`app/services/auth_service.py`, `app/db/engine.py`):**
+     - `rotate_refresh_token` acquires an upfront write lock (`BEGIN IMMEDIATE` on SQLite when not already in a transaction; `SELECT ... FOR UPDATE` on row-locking DBs like PostgreSQL) plus `PRAGMA busy_timeout=5000` for SQLite, and executes a conditional atomic `UPDATE refresh_tokens SET revoked_at = :now WHERE jti_hash = :h AND revoked_at IS NULL` checking `result.rowcount`. Concurrent rotations serialize cleanly and reuse triggers global token revocation for that user.
+- **Tests & Docs:**
+  - `tests/test_auth.py`: replaced auto-link test with `test_google_login_requires_ownership_proof_for_existing_password_account` (`409` on `/auth/google`, `401` on wrong password in `/auth/google/link`, `200` on valid ownership proof) and added `test_concurrent_refresh_rotation_only_one_succeeds` (two threads racing with independent connections on file-backed SQLite; asserts `[200, 401]` and single replacement row).
+  - Updated `docs/p1/design.md` sections 3, 4, and 5.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 72 passed, 16 warnings in 26.83s ======================= | Docker CI: verifying on push`
+
+---
+
 ### Entry 21 — 2026-11-26 | P1 Part A2.1 — Google Linking Fix, Missing Tests, Dockerfile Confirmation
 
 - **Scope:** Hardening fixes on top of Part A2.

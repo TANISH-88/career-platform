@@ -85,14 +85,18 @@ erDiagram
 2. **Login (`POST /auth/login`):** Enforces both per-IP and per-email rate limits. Verifies password against Argon2id hash (rejecting Google-only users cleanly with `401`), then issues:
    - **Access token (JWT, HS256, 15 min TTL):** Returned in JSON response `{access_token, token_type: "bearer"}`. Held **only in frontend React memory** (never `localStorage` or `sessionStorage`).
    - **Refresh token (JWT, HS256, 7 day TTL, unique `jti`):** Persists a `refresh_tokens` row with `jti_hash = sha256(jti)` and sets the JWT in an `HttpOnly` cookie (`refresh_token`).
-3. **Google Login (`POST /auth/google`):** Accepts `{id_token}`, verifies signature, issuer, expiry, and audience against `GOOGLE_CLIENT_ID` via `google.oauth2.id_token.verify_oauth2_token`. Refuses unverified emails (`email_verified != true`) and wrong audience (`401`). Finds existing user by `google_sub` or verified `email`. When linking to an existing email/password account that has a `password_hash`, it clears `password_hash = NULL` (disabling password login in favor of verified Google identity) and revokes all existing `refresh_tokens` for that user; otherwise creates a new user with `password_hash=None` and `google_sub`. Issues access token + rotated refresh cookie.
-4. **Refresh (`POST /auth/refresh`):** Requires `X-Requested-With` header (`403` if missing) and `refresh_token` cookie:
+3. **Google Login (`POST /auth/google`):** Accepts `{id_token}`, verifies signature, issuer, expiry, and audience against `GOOGLE_CLIENT_ID` via `google.oauth2.id_token.verify_oauth2_token`. Refuses unverified emails (`email_verified != true`) and wrong audience (`401`). Finds existing user by `google_sub` or verified `email`.
+   - **New user (no existing account):** Creates a row with `password_hash=NULL` and `google_sub` set. Issues token pair.
+   - **Existing Google-only account (password_hash already NULL):** Attaches `google_sub` if not already set. Issues token pair.
+   - **Existing password account (email matches, password_hash != NULL):** Returns `409 Conflict` — does **NOT** auto-link. Proof of account ownership is required. The 409 detail message tells the client to call `POST /auth/google/link`.
+4. **Google Link (`POST /auth/google/link`):** Accepts `{id_token, password}`. Verifies the Google ID token and the account password together. If both are valid: sets `google_sub`, clears `password_hash = NULL` (Google becomes the sole credential), revokes all existing refresh tokens for the user, and issues a fresh token pair. Returns `401` if either credential is wrong. This two-step design ensures no attacker can hijack a password account merely by controlling a Google account with the same email.
+5. **Refresh (`POST /auth/refresh`):** Requires `X-Requested-With` header (`403` if missing) and `refresh_token` cookie:
    - Verifies JWT signature, expiry, `type="refresh"`, and `jti`.
-   - Looks up `jti_hash` in `refresh_tokens`.
-   - **Reuse detection:** If `revoked_at` is already set, revokes **all** non-revoked refresh tokens for that `user_id` and returns `401`.
-   - **Rotation:** Marks the current `refresh_tokens` row `revoked_at = now`, inserts a new `refresh_tokens` row with a fresh `jti`, sets `replaced_by = new_token.id`, sets the rotated `HttpOnly` cookie, and returns a new `{access_token, token_type: "bearer"}`.
-5. **Logout (`POST /auth/logout`):** Requires `X-Requested-With` header (`403` if missing). If a `refresh_token` cookie is present, revokes its matching `refresh_tokens` row (`revoked_at = now`) and clears the cookie.
-6. **Current User (`GET /auth/me`):** Requires `Authorization: Bearer <access_token>`, returns `{id, email, created_at, is_active}`.
+   - **Database-level atomicity:** Acquires a write lock upfront (`BEGIN IMMEDIATE` on SQLite when not already in a transaction; `SELECT ... FOR UPDATE` on PostgreSQL and other row-locking engines), then performs a conditional atomic `UPDATE refresh_tokens SET revoked_at = :now WHERE jti_hash = :h AND revoked_at IS NULL` and checks `rowcount`. Concurrent rotations on the same token serialize cleanly: only the first caller succeeds (`200`), while subsequent/racing callers see `revoked_at` already set / `rowcount == 0`.
+   - **Reuse detection:** If `revoked_at` is already set (or conditional `UPDATE` returns `rowcount == 0`), revokes **all** non-revoked refresh tokens for that `user_id` and returns `401`.
+   - **Rotation:** Inserts a new `refresh_tokens` row with a fresh `jti`, links `replaced_by = new_token.id`, commits atomically, sets the rotated `HttpOnly` cookie, and returns a new `{access_token, token_type: "bearer"}`.
+6. **Logout (`POST /auth/logout`):** Requires `X-Requested-With` header (`403` if missing). If a `refresh_token` cookie is present, revokes its matching `refresh_tokens` row (`revoked_at = now`) and clears the cookie.
+7. **Current User (`GET /auth/me`):** Requires `Authorization: Bearer <access_token>`, returns `{id, email, created_at, is_active}`.
 
 ### JWT Secret & Fail-Closed Startup
 - **No hardcoded fallback secret:** The static dev secret has been removed.
@@ -119,7 +123,8 @@ erDiagram
 |---|---|---|---|---|
 | `POST` | `/auth/register` | Public (per-IP limit) | `{email, password}` | `201` user profile; `409` if email exists |
 | `POST` | `/auth/login` | Public (per-IP + per-email limit) | `{email, password}` | `200` `{access_token, token_type}` + `HttpOnly` refresh cookie |
-| `POST` | `/auth/google` | Public (per-IP limit) | `{id_token}` | `200` `{access_token, token_type}` + `HttpOnly` refresh cookie |
+| `POST` | `/auth/google` | Public (per-IP limit) | `{id_token}` | `200` `{access_token, token_type}` + `HttpOnly` refresh cookie; `409` if email belongs to an unlinked password account |
+| `POST` | `/auth/google/link` | Public (per-IP limit) | `{id_token, password}` | `200` `{access_token, token_type}` + cookie (proves password ownership, clears `password_hash`, revokes old tokens); `401` on bad password/token |
 | `POST` | `/auth/refresh` | Cookie + `X-Requested-With` | — | `200` `{access_token, token_type}` + rotated cookie; `401` on reuse/expired; `403` without header |
 | `POST` | `/auth/logout` | `X-Requested-With` (+ cookie) | — | `200` `{detail: "Logged out"}`, revokes DB token + clears cookie |
 | `GET` | `/auth/me` | Bearer access token | — | `200` `{id, email, created_at, is_active}` |
@@ -143,7 +148,7 @@ erDiagram
 - **Rate limiting & Reverse Proxy (`--proxy-headers`):**
   - `infra/docker/Dockerfile.backend` runs `uvicorn` with `--proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"` so Starlette resolves real client IPs behind trusted proxies (such as Render) instead of sharing one proxy IP bucket across all users.
   - `/auth/login` applies **both** a per-IP rate limit and a per-normalized-email rate limit (`429 Too Many Requests`).
-  - `/auth/register` and `/auth/google` apply per-IP rate limiting.
+  - `/auth/register`, `/auth/google`, and `/auth/google/link` apply per-IP rate limiting.
   - *Multi-instance note:* An in-memory limiter is single-process only; Redis-backed rate limiting will be needed before running multiple backend replicas.
   - *Follow-up on `/parse-resume`:* `POST /parse-resume` currently has **no rate limit**. Adding rate limiting to `/parse-resume` (to protect Gemini API quota) is tracked as a follow-up.
 

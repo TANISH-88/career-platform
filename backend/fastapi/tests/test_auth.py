@@ -1,4 +1,5 @@
 from datetime import timedelta
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -338,14 +339,18 @@ def test_google_login_rejects_wrong_audience(auth_client, monkeypatch):
     assert resp.status_code == 401
 
 
-def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
+def test_google_login_requires_ownership_proof_for_existing_password_account(
     auth_client, monkeypatch
 ):
+    """POST /auth/google returns 409 when the email matches an existing password account.
+
+    The user must call POST /auth/google/link with their password to prove ownership.
+    That endpoint clears password_hash, revokes existing tokens, and issues a fresh pair.
+    """
     client, session_factory = auth_client
 
     def fake_verify(token, _request, audience):
         assert audience == "test-google-client-id.apps.googleusercontent.com"
-        assert token == "link-existing-token"
         return {
             "sub": "google-sub-456",
             "email": "existing@example.com",
@@ -355,7 +360,7 @@ def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
 
     monkeypatch.setattr("app.services.auth_service.google_id_token.verify_oauth2_token", fake_verify)
 
-    # Register and sign in with password first
+    # Register and sign in with password first.
     assert (
         client.post(
             "/auth/register",
@@ -371,11 +376,37 @@ def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
     pw_refresh = pw_login.cookies.get("refresh_token")
     assert pw_refresh
 
-    # Sign in with Google for the same verified email
+    # /auth/google must NOT auto-link — it must return 409 and explain what to do.
     google_resp = client.post("/auth/google", json={"id_token": "link-existing-token"})
-    assert google_resp.status_code == 200
-    google_refresh = google_resp.cookies.get("refresh_token")
-    assert google_refresh and google_refresh != pw_refresh
+    assert google_resp.status_code == 409
+    assert "password" in google_resp.json()["detail"].lower()
+
+    # Account must be unchanged: google_sub still NULL, password_hash still set.
+    with session_factory() as db:
+        u = db.scalar(select(User).where(User.email == "existing@example.com"))
+        assert u is not None
+        assert u.google_sub is None
+        assert u.password_hash is not None
+
+    # Old refresh token must still work (account not disturbed).
+    client.cookies.set("refresh_token", pw_refresh)
+    assert client.post("/auth/refresh", headers=CSRF_HEADERS).status_code == 200
+
+    # /auth/google/link with wrong password → 401.
+    link_bad = client.post(
+        "/auth/google/link",
+        json={"id_token": "link-existing-token", "password": "WRONG_password"},
+    )
+    assert link_bad.status_code == 401
+
+    # /auth/google/link with correct password → 200; password cleared, tokens revoked.
+    link_resp = client.post(
+        "/auth/google/link",
+        json={"id_token": "link-existing-token", "password": "strongpassword123"},
+    )
+    assert link_resp.status_code == 200
+    link_refresh = link_resp.cookies.get("refresh_token")
+    assert link_refresh
 
     with session_factory() as db:
         linked = db.scalar(select(User).where(User.email == "existing@example.com"))
@@ -386,17 +417,12 @@ def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
         tokens = db.scalars(
             select(RefreshToken).where(RefreshToken.user_id == linked.id)
         ).all()
-        assert len(tokens) == 2
-        revoked_count = sum(1 for t in tokens if t.revoked_at is not None)
-        active_count = sum(1 for t in tokens if t.revoked_at is None)
-        assert revoked_count == 1
-        assert active_count == 1
+        # 3 rows: pw_login, the refreshed one from above, and the link token.
+        # All old ones must be revoked; only the link-issued token is active.
+        active = [t for t in tokens if t.revoked_at is None]
+        assert len(active) == 1
 
-    # Old password refresh token is rejected
-    client.cookies.set("refresh_token", pw_refresh)
-    assert client.post("/auth/refresh", headers=CSRF_HEADERS).status_code == 401
-
-    # Password login must now fail because password_hash was cleared
+    # Password login must now fail — password_hash is gone.
     assert (
         client.post(
             "/auth/login",
@@ -404,6 +430,85 @@ def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
         ).status_code
         == 401
     )
+
+    # /auth/google now succeeds (google_sub already set, no password_hash conflict).
+    google_now = client.post("/auth/google", json={"id_token": "link-existing-token"})
+    assert google_now.status_code == 200
+
+
+def test_concurrent_refresh_rotation_only_one_succeeds(monkeypatch, tmp_path):
+    """Regression test: two threads with independent DB connections racing to rotate
+    the same refresh token.
+
+    Uses a file-backed SQLite DB (separate connections per session, rather than
+    in-memory StaticPool) so both threads genuinely execute concurrent DB transactions.
+    Only one request should receive 200; the other must get 401 and at most one
+    replacement refresh token row may be created.
+    """
+    monkeypatch.setenv("MLFLOW_ENABLED", "false")
+    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-key")
+    monkeypatch.setenv("ENVIRONMENT", "test")
+
+    db_file = tmp_path / "concurrent_refresh.db"
+    engine = create_db_engine(f"sqlite:///{db_file}")
+    Base.metadata.create_all(bind=engine)
+    session_factory = create_session_factory(engine)
+
+    with TestClient(app) as client:
+        app.state.db_engine.dispose()
+        app.state.db_engine = engine
+        app.state.db_session_factory = session_factory
+        app.state.auth_rate_limiter = InMemoryRateLimiter(max_requests=50, window_seconds=60)
+        app.state.login_email_rate_limiter = InMemoryRateLimiter(max_requests=50, window_seconds=60)
+
+        assert (
+            client.post(
+                "/auth/register",
+                json={"email": "concurrent@example.com", "password": "strongpassword123"},
+            ).status_code
+            == 201
+        )
+        login_resp = client.post(
+            "/auth/login",
+            json={"email": "concurrent@example.com", "password": "strongpassword123"},
+        )
+        assert login_resp.status_code == 200
+        shared_refresh = login_resp.cookies.get("refresh_token")
+        assert shared_refresh
+
+        results: list[int] = []
+        results_lock = threading.Lock()
+        barrier = threading.Barrier(2)
+
+        def do_refresh():
+            tc = TestClient(app)
+            tc.cookies.set("refresh_token", shared_refresh)
+            barrier.wait()
+            resp = tc.post("/auth/refresh", headers=CSRF_HEADERS)
+            with results_lock:
+                results.append(resp.status_code)
+
+        t1 = threading.Thread(target=do_refresh)
+        t2 = threading.Thread(target=do_refresh)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert sorted(results) == [200, 401], (
+            f"Expected exactly one 200 and one 401, got {results}"
+        )
+
+        # Only one new token row should have been created (2 total: original + 1 rotated),
+        # and both should now be revoked (winner rotated original -> new; loser detected reuse).
+        with session_factory() as db:
+            rows = db.scalars(select(RefreshToken).order_by(RefreshToken.created_at.asc())).all()
+            assert len(rows) == 2
+            assert rows[0].replaced_by == rows[1].id
+            assert all(r.revoked_at is not None for r in rows)
+
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 def test_non_prod_without_jwt_secret_uses_ephemeral_random_secret(monkeypatch, caplog):

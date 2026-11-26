@@ -9,6 +9,7 @@ from app.config.settings import (
 from app.db.models import User
 from app.db.session import get_db
 from app.schemas.auth import (
+    GoogleLinkRequest,
     GoogleLoginRequest,
     LoginRequest,
     RegisterRequest,
@@ -17,12 +18,14 @@ from app.schemas.auth import (
 )
 from app.services.auth_service import (
     EmailAlreadyExistsError,
+    GoogleAccountConflictError,
     InvalidCredentialsError,
     InvalidTokenError,
     authenticate_google_user,
     authenticate_user,
     get_current_user,
     issue_token_pair,
+    link_google_to_password_account,
     register_user,
     revoke_refresh_token,
     rotate_refresh_token,
@@ -125,6 +128,41 @@ def google_login(
 ):
     try:
         user = authenticate_google_user(db, payload.id_token)
+    except GoogleAccountConflictError as exc:
+        # An existing password account matched by email — ownership proof required.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except (InvalidCredentialsError, InvalidTokenError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+    access_token, refresh_token = issue_token_pair(db, user.id)
+    _set_refresh_cookie(response, refresh_token)
+    return TokenResponse(access_token=access_token)
+
+
+@auth_router.post(
+    "/google/link",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+def google_link(
+    payload: GoogleLinkRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Link a Google identity to an existing email/password account.
+
+    The caller must supply their current password to prove they own the account.
+    On success the account's password_hash is cleared and all existing refresh
+    tokens are revoked; a fresh token pair is issued.
+    """
+    try:
+        user = link_google_to_password_account(db, payload.id_token, payload.password)
     except (InvalidCredentialsError, InvalidTokenError) as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
