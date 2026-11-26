@@ -10,6 +10,22 @@
 
 ---
 
+### Entry 21 — 2026-11-26 | P1 Part A2.1 — Google Linking Fix, Missing Tests, Dockerfile Confirmation
+
+- **Scope:** Hardening fixes on top of Part A2.
+  - `app/services/auth_service.py` (`authenticate_google_user`): When `/auth/google` links to an existing email/password account, now clears `users.password_hash = NULL` and revokes **all** that user's refresh tokens before issuing new ones. Previously only `google_sub` was written.
+  - `tests/test_auth.py`: Split the single Google test into three:
+    - `test_google_login_creates_links_and_rejects_unverified` — new user created + unverified email rejected
+    - `test_google_login_rejects_wrong_audience` — wrong audience rejected
+    - `test_google_login_links_existing_clears_password_and_revokes_refresh_tokens` — registers with password, signs in via mocked Google same email, verifies `password_hash` NULL, verifies old refresh token revoked, verifies password login now fails
+  - `docs/p1/design.md`: Updated Google Login section 3 to document the password-clearing and token-revocation behavior.
+  - `infra/docker/Dockerfile.backend`: CMD confirmed as `["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips \"${FORWARDED_ALLOW_IPS:-127.0.0.1}\""]`; `${FORWARDED_ALLOW_IPS}` expanded by shell at container start. Docker Desktop service stopped on dev machine (no admin); image build verified by GitHub Actions `docker-backend` CI job.
+  - Deleted stray untracked file `ersTanishp4.venvScriptsactivate.bat` (Windows path-mangling artifact); not committed.
+- **Tests:** 71 passed (22 P1 tests: 16 auth + 6 workspaces), 16 warnings.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -> 71 passed, 16 warnings in 29.55s | CI: pending`
+
+---
+
 ### Entry 20 — 2026-11-26 | P1 Part A2 — Auth Hardening & Schema Extension
 
 - **Design:** Updated `docs/p1/design.md` first with fail-closed JWT/environment rules, DB-backed refresh token rotation & reuse detection (`refresh_tokens`), same-origin Next.js proxy `SameSite=Lax` cookie + `X-Requested-With` CSRF header, `--proxy-headers` + per-IP/per-email rate limiting, Google Sign-In flow (`users.google_sub`, nullable `password_hash`), workspace archive/last-active schema, and proposed CP21 resume-version retention rules (not coded in A2).

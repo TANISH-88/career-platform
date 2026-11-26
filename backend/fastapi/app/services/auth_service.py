@@ -255,6 +255,7 @@ def authenticate_google_user(db: Session, id_token_str: str) -> User:
         raise InvalidTokenError("Google token missing required user claims")
 
     normalized_email = email.strip().lower()
+    now = datetime.now(timezone.utc)
     user = db.scalar(select(User).where(User.google_sub == google_sub))
     if user is None:
         user = db.scalar(select(User).where(User.email == normalized_email))
@@ -262,6 +263,13 @@ def authenticate_google_user(db: Session, id_token_str: str) -> User:
             if user.google_sub is not None and user.google_sub != google_sub:
                 raise InvalidCredentialsError("Account is linked to a different Google account")
             user.google_sub = google_sub
+            if user.password_hash is not None:
+                user.password_hash = None
+                db.execute(
+                    update(RefreshToken)
+                    .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+                    .values(revoked_at=now)
+                )
             db.commit()
             db.refresh(user)
         else:
@@ -273,6 +281,15 @@ def authenticate_google_user(db: Session, id_token_str: str) -> User:
             db.add(user)
             db.commit()
             db.refresh(user)
+    elif user.password_hash is not None:
+        user.password_hash = None
+        db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
+        db.commit()
+        db.refresh(user)
 
     if not user.is_active:
         raise InvalidCredentialsError("User account is inactive")

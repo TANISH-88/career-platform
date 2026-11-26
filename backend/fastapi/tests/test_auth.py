@@ -285,19 +285,17 @@ def test_google_login_creates_links_and_rejects_unverified(auth_client, monkeypa
                 "sub": "google-sub-123",
                 "email": "GoogleUser@Example.com",
                 "email_verified": True,
-            }
-        if token == "link-existing-token":
-            return {
-                "sub": "google-sub-456",
-                "email": "existing@example.com",
-                "email_verified": True,
+                "aud": audience,
             }
         if token == "unverified-token":
             return {
                 "sub": "google-sub-999",
                 "email": "unverified@example.com",
                 "email_verified": False,
+                "aud": audience,
             }
+        if token == "wrong-aud-token":
+            raise ValueError(f"Token has wrong audience, expected {audience}")
         raise ValueError("Invalid token")
 
     monkeypatch.setattr("app.services.auth_service.google_id_token.verify_oauth2_token", fake_verify)
@@ -314,28 +312,98 @@ def test_google_login_creates_links_and_rejects_unverified(auth_client, monkeypa
         assert g_user.google_sub == "google-sub-123"
         assert g_user.password_hash is None
 
-    # Google-only account cannot log in via empty/any password
+    # Google-only account cannot log in via password
     pw_attempt = client.post(
         "/auth/login",
         json={"email": "googleuser@example.com", "password": "anypassword"},
     )
     assert pw_attempt.status_code == 401
 
-    # 2) Existing email/password user links google_sub on Google sign-in
-    client.post(
-        "/auth/register",
+    # 2) Unverified email refused
+    resp_unverified = client.post("/auth/google", json={"id_token": "unverified-token"})
+    assert resp_unverified.status_code == 401
+
+
+def test_google_login_rejects_wrong_audience(auth_client, monkeypatch):
+    client, _ = auth_client
+
+    def fake_verify(token, _request, audience):
+        token_aud = "other-client-id.apps.googleusercontent.com"
+        if token_aud != audience:
+            raise ValueError("Wrong audience")
+        return {"sub": "s", "email": "a@example.com", "email_verified": True}
+
+    monkeypatch.setattr("app.services.auth_service.google_id_token.verify_oauth2_token", fake_verify)
+    resp = client.post("/auth/google", json={"id_token": "token-for-other-client"})
+    assert resp.status_code == 401
+
+
+def test_google_login_links_existing_clears_password_and_revokes_refresh_tokens(
+    auth_client, monkeypatch
+):
+    client, session_factory = auth_client
+
+    def fake_verify(token, _request, audience):
+        assert audience == "test-google-client-id.apps.googleusercontent.com"
+        assert token == "link-existing-token"
+        return {
+            "sub": "google-sub-456",
+            "email": "existing@example.com",
+            "email_verified": True,
+            "aud": audience,
+        }
+
+    monkeypatch.setattr("app.services.auth_service.google_id_token.verify_oauth2_token", fake_verify)
+
+    # Register and sign in with password first
+    assert (
+        client.post(
+            "/auth/register",
+            json={"email": "existing@example.com", "password": "strongpassword123"},
+        ).status_code
+        == 201
+    )
+    pw_login = client.post(
+        "/auth/login",
         json={"email": "existing@example.com", "password": "strongpassword123"},
     )
-    resp_link = client.post("/auth/google", json={"id_token": "link-existing-token"})
-    assert resp_link.status_code == 200
+    assert pw_login.status_code == 200
+    pw_refresh = pw_login.cookies.get("refresh_token")
+    assert pw_refresh
+
+    # Sign in with Google for the same verified email
+    google_resp = client.post("/auth/google", json={"id_token": "link-existing-token"})
+    assert google_resp.status_code == 200
+    google_refresh = google_resp.cookies.get("refresh_token")
+    assert google_refresh and google_refresh != pw_refresh
+
     with session_factory() as db:
         linked = db.scalar(select(User).where(User.email == "existing@example.com"))
         assert linked is not None
         assert linked.google_sub == "google-sub-456"
+        assert linked.password_hash is None
 
-    # 3) Unverified email refused
-    resp_unverified = client.post("/auth/google", json={"id_token": "unverified-token"})
-    assert resp_unverified.status_code == 401
+        tokens = db.scalars(
+            select(RefreshToken).where(RefreshToken.user_id == linked.id)
+        ).all()
+        assert len(tokens) == 2
+        revoked_count = sum(1 for t in tokens if t.revoked_at is not None)
+        active_count = sum(1 for t in tokens if t.revoked_at is None)
+        assert revoked_count == 1
+        assert active_count == 1
+
+    # Old password refresh token is rejected
+    client.cookies.set("refresh_token", pw_refresh)
+    assert client.post("/auth/refresh", headers=CSRF_HEADERS).status_code == 401
+
+    # Password login must now fail because password_hash was cleared
+    assert (
+        client.post(
+            "/auth/login",
+            json={"email": "existing@example.com", "password": "strongpassword123"},
+        ).status_code
+        == 401
+    )
 
 
 def test_non_prod_without_jwt_secret_uses_ephemeral_random_secret(monkeypatch, caplog):
