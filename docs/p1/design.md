@@ -1,12 +1,11 @@
-# P1 Design: Accounts and Workspaces (Updated for Part A2)
+# P1 Design: Accounts and Workspaces (Updated for Part B2 / CP21)
 
 ## 1. Overview & Scope
-P1 introduces user accounts (email + password and Google Sign-In) and personal workspaces for saving skill profiles and career predictions, while keeping the existing anonymous `POST /predict` and `POST /parse-resume` endpoints 100% backward compatible.
+P1 introduces user accounts (email + password and Google Sign-In) and personal workspaces for saving skill profiles, career predictions, and resume-derived score versions, while keeping the existing anonymous `POST /predict` and `POST /parse-resume` endpoints 100% backward compatible.
 
-- **Implemented in P1 Part A + A2:** Email/password auth, Google ID token login (`POST /auth/google`), DB-backed refresh token rotation & reuse detection (`refresh_tokens`), per-IP + per-email rate limiting, same-origin proxy cookie + `X-Requested-With` CSRF protection, fail-closed startup configuration, and workspace archival + `last_opened_at` tracking.
-- **Proposed (not implemented in A2):** Resume versions (CP21) — documented in Section 6 below.
-- **Out of scope for P1:** P2 (role-skill gap analysis), M4 (deploy/email approval), and agent/RAG/LLM work.
-- **Unchanged endpoints:** `POST /predict` and `POST /parse-resume` remain unauthenticated and stateless; no storage is added to `/parse-resume`.
+- **Implemented in P1 Parts A + A2 + B + B2:** Email/password auth, Google ID token login (`POST /auth/google`) & ownership-verified linking (`POST /auth/google/link`), DB-backed atomic refresh token rotation & reuse detection (`refresh_tokens`), per-IP + per-email auth rate limiting, per-IP + per-user resume rate limiting, same-origin Next.js proxy `/api/*` + `SameSite=Lax` cookie + `X-Requested-With` CSRF protection, cross-tab refresh coordination (`Web Locks` + `BroadcastChannel` + `sessionEpoch` + delayed 401 guard), fail-closed startup configuration, workspace archival + `last_opened_at` continuation popup, and CP21 privacy-preserving workspace resume version management (`resume_versions`).
+- **Out of scope for P1:** P2 (role-skill gap analysis), M4 (deploy/email approval), and agent/RAG/LLM expansion beyond existing Gemini skill scoring.
+- **Unchanged anonymous endpoints:** `POST /predict` and `POST /parse-resume` remain unauthenticated and stateless; no database storage is added to `/parse-resume`.
 
 ---
 
@@ -18,6 +17,7 @@ erDiagram
     users ||--o{ refresh_tokens : holds
     workspaces ||--o{ skill_profiles : contains
     workspaces ||--o{ predictions : has
+    workspaces ||--o{ resume_versions : tracks
     skill_profiles ||--o{ predictions : produces
 
     users {
@@ -65,6 +65,18 @@ erDiagram
         string model_version "e.g. frf_v1"
         datetime created_at "UTC"
     }
+
+    resume_versions {
+        string id PK "UUID"
+        string workspace_id FK "Indexed -> workspaces.id (CASCADE)"
+        int version_number "Sequential per-workspace counter starting at 1"
+        json parsed_skills "14 derived floats [1-10] in orderedKeys order"
+        string predicted_role "ML top role prediction"
+        json top_k "ML top_3_roles list"
+        string model_version "e.g. frf_v1"
+        string parser_model "e.g. gemini-2.5-flash-lite"
+        datetime created_at "UTC"
+    }
 ```
 
 ### Schema Notes
@@ -72,9 +84,9 @@ erDiagram
 - **`users.password_hash` & `users.google_sub`:** `password_hash` is nullable to support Google-only accounts; `google_sub` is unique and nullable. Email/password login rejects accounts where `password_hash` is `NULL`.
 - **`refresh_tokens`:** Stores SHA-256 hashes of refresh token `jti` values so raw refresh tokens are never persisted in the DB, enabling rotation, logout revocation, and stolen-token reuse detection.
 - **`workspaces.archived_at` & `workspaces.last_opened_at`:** `archived_at` supports archive/unarchive filtering; `last_opened_at` updates whenever a workspace is opened (`GET /workspaces/{id}`) and powers `GET /workspaces/last-active`.
-- **`skill_profiles.values`:** Stores the 14 raw UI inputs (`1.0`–`10.0`) in `orderedKeys` order (`computer_architecture` ... `self_transcendence`).
-- **`predictions.top_k`:** Stores the existing `top_3_roles` list (`[{"role": str, "probability": float}, ...]`) as-is.
-- **Cascading deletes:** Deleting a workspace cascades to its `skill_profiles` and `predictions`. Deleting a user cascades to `workspaces` and `refresh_tokens`.
+- **`skill_profiles.values` & `resume_versions.parsed_skills`:** Store the 14 numeric inputs/scores (`1.0`–`10.0`) in `orderedKeys` order (`computer_architecture` ... `self_transcendence`). `resume_versions` contains **zero** raw resume bytes, filenames, or extracted plaintext.
+- **`predictions.top_k` / `resume_versions.top_k`:** Store the existing `top_3_roles` list (`[{"role": str, "probability": float}, ...]`) as-is.
+- **Cascading deletes:** Deleting a workspace cascades to its `skill_profiles`, `predictions`, and `resume_versions`. Deleting a user cascades to `workspaces` and `refresh_tokens`.
 
 ---
 
@@ -137,8 +149,12 @@ erDiagram
 | `DELETE` | `/workspaces/{id}` | Bearer access token | — | `204` (cascades); `404` if missing or not owner |
 | `POST` | `/workspaces/{id}/predict` | Bearer access token | `{values: [14 floats]}` | `200` `{predicted_role, top_3_roles, prediction_id, skill_profile_id, model_version, created_at}` |
 | `GET` | `/workspaces/{id}/history` | Bearer access token | — | `200` list of predictions + `values` ordered newest first; `404` if not owner |
+| `POST` | `/workspaces/{id}/resume-versions` | Bearer + per-IP/user rate limit + consent | Multipart PDF/DOCX + `consent=true` | `201` `ResumeVersionResponse`; `422` if consent false; `413`/`415` validation; `409` when `>= 10` versions; `429` rate limit; `404` if not owner |
+| `GET` | `/workspaces/{id}/resume-versions` | Bearer access token | — | `200` list of `ResumeVersionResponse` newest first; `404` if not owner |
+| `DELETE` | `/workspaces/{id}/resume-versions/{version_id}` | Bearer access token | — | `204` removes one version; `404` if workspace or version not owned |
+| `DELETE` | `/workspaces/{id}/resume-versions` | Bearer access token | — | `204` clears all resume versions for workspace; `404` if not owner |
 | `POST` | `/predict` | Public (unchanged) | `{values: [14 floats]}` | `200` `{predicted_role, top_3_roles}` (anonymous, no DB write) |
-| `POST` | `/parse-resume` | Public (unchanged) | Multipart PDF/DOCX | `200` `ParsedResumeResponse` (no DB write) |
+| `POST` | `/parse-resume` | Public + per-IP rate limit | Multipart PDF/DOCX | `200` `ParsedResumeResponse` (`429` over `20 req/60s`; no DB write) |
 
 ---
 
@@ -149,31 +165,23 @@ erDiagram
   - `infra/docker/Dockerfile.backend` runs `uvicorn` with `--proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"` so Starlette resolves real client IPs behind trusted proxies (such as Render) instead of sharing one proxy IP bucket across all users.
   - `/auth/login` applies **both** a per-IP rate limit and a per-normalized-email rate limit (`429 Too Many Requests`).
   - `/auth/register`, `/auth/google`, and `/auth/google/link` apply per-IP rate limiting.
+  - `/parse-resume` applies per-IP rate limiting (`resume_rate_limiter`: `20 req/60s`) and `/workspaces/{id}/resume-versions` applies **both** per-IP and per-user rate limiting (`20 req/60s`) **before** any DB capacity lookup or Gemini call.
   - *Multi-instance note:* An in-memory limiter is single-process only; Redis-backed rate limiting will be needed before running multiple backend replicas.
-  - *Follow-up on `/parse-resume`:* `POST /parse-resume` currently has **no rate limit**. Adding rate limiting to `/parse-resume` (to protect Gemini API quota) is tracked as a follow-up.
+- **Cross-Tab Session Hardening (`my-app/lib/apiClient.mjs`):**
+  - Refresh calls serialize across tabs via Web Locks (`navigator.locks`) and sync rotated in-memory tokens and `LOGOUT` events over `BroadcastChannel` (never `localStorage`/`sessionStorage`).
+  - Monotonic `sessionEpoch` invalidates any in-flight `/auth/refresh` response that finishes after `logout()` runs.
+  - Delayed `401` guard skips issuing a duplicate `/auth/refresh` if `accessToken` has already rotated since the failed request was sent.
 
 ---
 
-## 6. Proposed: Resume Versions & Data Retention (CP21 — Not Implemented in A2)
-> **Status:** Proposed design only; NOT coded in Part A2. Will be implemented in its own follow-up part after the frontend (Part B).
+## 6. Resume Versions & Data Retention (CP21 — Implemented in Part B2)
+> **Status:** Implemented in Part B2 (Alembic migration `7e7a0f2e3301_part_b2_resume_versions.py`, `WorkspaceResumeVersions.jsx`, `docs/p1/browser-verification-b2.md`).
 
-### Design Goals & Privacy Boundaries
-Resumes contain PII, and free-tier LLM APIs (such as Gemini free tier) may retain or train on submitted prompts unless opted out. To minimize privacy exposure:
-1. **Do NOT store raw files or raw resume text:** Neither the uploaded PDF/DOCX bytes nor extracted plaintext will be saved in the database or object storage.
-2. **Store derived outputs only:** Each resume version record (`resume_versions`) stores only:
-   - `id`, `workspace_id`, `version_number` (or label), `created_at`
-   - `parsed_skills` (the 14 numeric `[1-10]` scores produced by the parser)
-   - `model_output` (`predicted_role`, `top_k`, `model_version`) — i.e., the ML model reading alongside the LLM-parsed skill vector
-   - Non-sensitive summary flags (e.g., parser model identifier)
-3. **Logging rule:** Application logs **must never** contain raw resume text, extracted snippets, file bytes, or user PII filenames. Log only request status, byte count, and timing.
-4. **User deletion controls:**
-   - **Per-version delete (proposed):** `DELETE /workspaces/{id}/resume-versions/{version_id}` removes a single version.
-   - **Delete-all endpoint (proposed):** `DELETE /auth/me/resume-data` (and/or `DELETE /workspaces/{id}/resume-versions`) deletes all stored resume-derived versions for the authenticated user (or workspace).
-5. **Retention limit:**
-   - Cap stored versions per workspace (e.g., max `10` resume versions per workspace; oldest pruned on insert or rejected with prompt to delete) and/or time-based retention (e.g., auto-expire after `90` days).
-
-### Open Questions (To Decide Before Coding CP21)
-1. **Gemini API tier / prompt retention:** Should we require a paid Gemini API key (zero-data-retention terms) in production or display an explicit consent notice before sending resume text to `/parse-resume`?
-2. **Retention policy exact numbers:** Should the cap be per-workspace (`N = 10` versions), per-user, or time-based (`90 days`), and should overflow auto-prune the oldest version or return `409 Conflict`?
-3. **Cascade on "delete my resume data":** Should `DELETE /auth/me/resume-data` delete only `resume_versions`, or also any `skill_profiles` and `predictions` rows that originated from a resume upload?
-4. **Workspace linkage:** Should uploading a resume in a workspace automatically create a `skill_profile` + `prediction` entry in `history`, or live in a dedicated `resume_versions` timeline rendered alongside manual predictions?
+### Privacy Boundaries & Enforced Rules
+1. **Zero raw resume storage:** Neither uploaded PDF/DOCX bytes, filenames, nor extracted resume plaintext are stored in SQL or object storage. Validation (`MAX_RESUME_BYTES` = 5 MB, `.pdf`/`.docx` extension & MIME) runs in memory (`app/services/resume_parser.py`).
+2. **Derived outputs only (`resume_versions`):** Each row stores only `id`, `workspace_id`, sequential `version_number` (`max(version_number) + 1` monotonically per workspace), `parsed_skills` (14 numeric `[1-10]` scores), `predicted_role`, `top_k`, `model_version`, `parser_model`, and `created_at`.
+3. **Explicit consent gate:** `POST /workspaces/{id}/resume-versions` requires `consent=true` form input (returns `422` otherwise) before calling Gemini; the UI disables `Save Resume Version` until the consent checkbox is checked.
+4. **Per-workspace upload cap:** `MAX_RESUME_VERSIONS_PER_WORKSPACE = 10`. Attempting an 11th upload returns `409 Conflict` **without** invoking Gemini, prompting the user to delete existing versions first.
+5. **User deletion controls:**
+   - **Per-version delete:** `DELETE /workspaces/{id}/resume-versions/{version_id}` removes a single version (`204`, `404` on cross-user access).
+   - **Workspace delete-all:** `DELETE /workspaces/{id}/resume-versions` clears all versions for a workspace (`204`), and deleting a workspace cascades to all its `resume_versions`.

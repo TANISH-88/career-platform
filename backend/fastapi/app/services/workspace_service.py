@@ -1,17 +1,30 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import Prediction, SkillProfile, Workspace
+from app.config.constants import MAX_RESUME_VERSIONS_PER_WORKSPACE
+from app.db.models import Prediction, ResumeVersion, SkillProfile, Workspace
 from app.schemas.prediction import TopRole
-from app.schemas.workspace import PredictionHistoryItem, WorkspacePredictionResponse
+from app.schemas.workspace import (
+    PredictionHistoryItem,
+    ResumeVersionResponse,
+    WorkspacePredictionResponse,
+)
 from app.services.feature_mapper import FeatureMapper
 from app.services.predictor import PredictorService
 
 
 class WorkspaceNotFoundError(Exception):
     """Raised when a workspace does not exist or is not owned by the caller."""
+
+
+class ResumeVersionNotFoundError(Exception):
+    """Raised when a resume version does not exist or does not belong to the caller's workspace."""
+
+
+class ResumeVersionLimitError(Exception):
+    """Raised when a workspace reaches MAX_RESUME_VERSIONS_PER_WORKSPACE."""
 
 
 def _utcnow() -> datetime:
@@ -164,3 +177,131 @@ def get_workspace_history(
         )
         for prediction, skill_profile in rows
     ]
+
+
+def ensure_resume_version_capacity(db: Session, workspace_id: str, user_id: str) -> Workspace:
+    """Verify caller owns the workspace and has fewer than MAX_RESUME_VERSIONS_PER_WORKSPACE."""
+    workspace = get_workspace_for_user(db, workspace_id, user_id)
+    existing_count = db.scalar(
+        select(func.count()).select_from(ResumeVersion).where(ResumeVersion.workspace_id == workspace.id)
+    ) or 0
+    if existing_count >= MAX_RESUME_VERSIONS_PER_WORKSPACE:
+        raise ResumeVersionLimitError(
+            f"Resume version limit reached (max {MAX_RESUME_VERSIONS_PER_WORKSPACE} per workspace). "
+            "Delete an existing version before uploading another."
+        )
+    return workspace
+
+
+def create_workspace_resume_version(
+    db: Session,
+    workspace_id: str,
+    user_id: str,
+    parsed_skills: list[float],
+    feature_mapper: FeatureMapper,
+    predictor: PredictorService,
+    model_version: str,
+    parser_model: str,
+) -> ResumeVersionResponse:
+    """Persist derived-only LLM skill scores and ML prediction for a workspace resume upload.
+
+    Never accepts or stores raw file bytes, filenames, or extracted plaintext.
+    """
+    workspace = ensure_resume_version_capacity(db, workspace_id, user_id)
+
+    features = feature_mapper.transform(parsed_skills)
+    result = predictor.predict(features)
+
+    max_ver = db.scalar(
+        select(func.max(ResumeVersion.version_number)).where(
+            ResumeVersion.workspace_id == workspace.id
+        )
+    ) or 0
+
+    now = _utcnow()
+    top_k_payload = [role.model_dump() for role in result.top_3_roles]
+    version = ResumeVersion(
+        workspace_id=workspace.id,
+        version_number=int(max_ver) + 1,
+        parsed_skills=[float(v) for v in parsed_skills],
+        predicted_role=result.predicted_role,
+        top_k=top_k_payload,
+        model_version=model_version,
+        parser_model=parser_model,
+    )
+    db.add(version)
+    workspace.updated_at = now
+    workspace.last_opened_at = now
+    db.commit()
+    db.refresh(version)
+
+    return ResumeVersionResponse(
+        id=version.id,
+        workspace_id=version.workspace_id,
+        version_number=version.version_number,
+        parsed_skills=version.parsed_skills,
+        predicted_role=version.predicted_role,
+        top_k=[TopRole(**item) for item in version.top_k],
+        model_version=version.model_version,
+        parser_model=version.parser_model,
+        created_at=version.created_at,
+    )
+
+
+def list_workspace_resume_versions(
+    db: Session,
+    workspace_id: str,
+    user_id: str,
+) -> list[ResumeVersionResponse]:
+    workspace = get_workspace_for_user(db, workspace_id, user_id)
+    stmt = (
+        select(ResumeVersion)
+        .where(ResumeVersion.workspace_id == workspace.id)
+        .order_by(ResumeVersion.version_number.desc(), ResumeVersion.created_at.desc())
+    )
+    versions = db.scalars(stmt).all()
+    return [
+        ResumeVersionResponse(
+            id=v.id,
+            workspace_id=v.workspace_id,
+            version_number=v.version_number,
+            parsed_skills=v.parsed_skills,
+            predicted_role=v.predicted_role,
+            top_k=[TopRole(**item) for item in v.top_k],
+            model_version=v.model_version,
+            parser_model=v.parser_model,
+            created_at=v.created_at,
+        )
+        for v in versions
+    ]
+
+
+def delete_workspace_resume_version(
+    db: Session,
+    workspace_id: str,
+    version_id: str,
+    user_id: str,
+) -> None:
+    workspace = get_workspace_for_user(db, workspace_id, user_id)
+    version = db.scalar(
+        select(ResumeVersion).where(
+            ResumeVersion.id == version_id,
+            ResumeVersion.workspace_id == workspace.id,
+        )
+    )
+    if version is None:
+        raise ResumeVersionNotFoundError("Resume version not found")
+    db.delete(version)
+    workspace.updated_at = _utcnow()
+    db.commit()
+
+
+def delete_all_workspace_resume_versions(
+    db: Session,
+    workspace_id: str,
+    user_id: str,
+) -> None:
+    workspace = get_workspace_for_user(db, workspace_id, user_id)
+    db.execute(delete(ResumeVersion).where(ResumeVersion.workspace_id == workspace.id))
+    workspace.updated_at = _utcnow()
+    db.commit()

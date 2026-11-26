@@ -335,3 +335,245 @@ test("workspace isolation surfaces 404 NotFoundError and lifecycle + Continue po
   assert.equal(mapped[ORDERED_SKILL_KEYS[0]], "1");
   assert.equal(mapped[ORDERED_SKILL_KEYS[13]], "4");
 });
+
+test("concurrent browser tabs serialize refresh via Web Lock + BroadcastChannel and sync logout", async () => {
+  // In-memory BroadcastChannel + exclusive Web Lock bus simulating 2 open browser tabs
+  const channels = new Set();
+  const broadcastChannelFactory = () => {
+    const ch = {
+      onmessage: null,
+      postMessage(data) {
+        for (const peer of channels) {
+          if (peer !== ch && typeof peer.onmessage === "function") {
+            peer.onmessage({ data });
+          }
+        }
+      },
+      close() {
+        channels.delete(ch);
+      },
+    };
+    channels.add(ch);
+    return ch;
+  };
+
+  let lockTail = Promise.resolve();
+  const locksImpl = {
+    request(_name, fn) {
+      const next = lockTail.then(() => fn());
+      lockTail = next.catch(() => {});
+      return next;
+    },
+  };
+
+  let refreshCount = 0;
+  let logoutCount = 0;
+  const mockFetch = async (url, opts = {}) => {
+    const headers = new Headers(opts.headers || {});
+    if (url === "/api/auth/refresh") {
+      refreshCount += 1;
+      await new Promise((r) => setTimeout(r, 20));
+      return jsonResponse(200, { access_token: "tab-shared-token", token_type: "bearer" });
+    }
+    if (url === "/api/auth/me") {
+      assert.equal(headers.get("authorization"), "Bearer tab-shared-token");
+      return jsonResponse(200, { id: "u1", email: "tabs@example.com", is_active: true });
+    }
+    if (url === "/api/auth/logout") {
+      logoutCount += 1;
+      return jsonResponse(200, { detail: "Logged out" });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  let tabBLoggedOut = false;
+  const tabA = createApiClient({ fetchImpl: mockFetch, locksImpl, broadcastChannelFactory });
+  const tabB = createApiClient({
+    fetchImpl: mockFetch,
+    locksImpl,
+    broadcastChannelFactory,
+    onAuthChange: (state) => {
+      if (!state.isAuthenticated) tabBLoggedOut = true;
+    },
+  });
+
+  const [userA, userB] = await Promise.all([tabA.bootstrapSession(), tabB.bootstrapSession()]);
+  assert.equal(refreshCount, 1, "Cross-tab Web Lock + BroadcastChannel must issue strictly 1 refresh");
+  assert.equal(userA.email, "tabs@example.com");
+  assert.equal(userB.email, "tabs@example.com");
+  assert.equal(tabA.getAccessToken(), "tab-shared-token");
+  assert.equal(tabB.getAccessToken(), "tab-shared-token");
+
+  await tabA.logout();
+  assert.equal(logoutCount, 1);
+  assert.equal(tabA.getAccessToken(), null);
+  assert.equal(tabB.getAccessToken(), null);
+  assert.equal(tabB.getUser(), null);
+  assert.equal(tabBLoggedOut, true);
+
+  tabA.close();
+  tabB.close();
+});
+
+test("delayed 401 response reuses newer rotated token without issuing a duplicate refresh", async () => {
+  let refreshCount = 0;
+  let releaseSlow401;
+  const slow401Gate = new Promise((r) => {
+    releaseSlow401 = r;
+  });
+  let slowFirstAttemptDone = false;
+
+  const mockFetch = async (url, opts = {}) => {
+    const headers = new Headers(opts.headers || {});
+    if (url === "/api/auth/login") {
+      return jsonResponse(200, { access_token: "token-v1", token_type: "bearer" });
+    }
+    if (url === "/api/auth/me") {
+      return jsonResponse(200, { id: "u1", email: "delay@example.com", is_active: true });
+    }
+    if (url === "/api/auth/refresh") {
+      refreshCount += 1;
+      return jsonResponse(200, { access_token: "token-v2", token_type: "bearer" });
+    }
+    if (url === "/api/workspaces/slow") {
+      if (!slowFirstAttemptDone && headers.get("authorization") === "Bearer token-v1") {
+        slowFirstAttemptDone = true;
+        await slow401Gate;
+        return jsonResponse(401, { detail: "Token v1 expired" });
+      }
+      assert.equal(headers.get("authorization"), "Bearer token-v2");
+      return jsonResponse(200, { id: "slow", name: "Recovered Without Extra Refresh" });
+    }
+    if (url === "/api/workspaces/fast") {
+      if (headers.get("authorization") === "Bearer token-v1") {
+        return jsonResponse(401, { detail: "Token v1 expired" });
+      }
+      assert.equal(headers.get("authorization"), "Bearer token-v2");
+      return jsonResponse(200, { id: "fast", name: "Triggered Refresh" });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const client = createApiClient({ fetchImpl: mockFetch });
+  await client.login("delay@example.com", "strongpassword123");
+
+  // Start slow request using token-v1, then let fast request trigger refresh to token-v2
+  const slowPromise = client.getWorkspace("slow");
+  const fastResult = await client.getWorkspace("fast");
+  assert.equal(fastResult.id, "fast");
+  assert.equal(refreshCount, 1);
+
+  // Now release the delayed 401 for the earlier slow request
+  releaseSlow401();
+  const slowResult = await slowPromise;
+  assert.equal(slowResult.id, "slow");
+  assert.equal(refreshCount, 1, "Delayed 401 must NOT trigger a second /auth/refresh");
+});
+
+test("logout during in-flight refresh prevents stale refresh response from resurrecting session", async () => {
+  let resolveRefreshFetch;
+  const pendingRefresh = new Promise((r) => {
+    resolveRefreshFetch = r;
+  });
+
+  const mockFetch = async (url) => {
+    if (url === "/api/auth/login") {
+      return jsonResponse(200, { access_token: "tok-1", token_type: "bearer" });
+    }
+    if (url === "/api/auth/me") {
+      return jsonResponse(200, { id: "u1", email: "race@example.com", is_active: true });
+    }
+    if (url === "/api/auth/refresh") {
+      return pendingRefresh;
+    }
+    if (url === "/api/auth/logout") {
+      return jsonResponse(200, { detail: "Logged out" });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  let authState = null;
+  const client = createApiClient({
+    fetchImpl: mockFetch,
+    onAuthChange: (s) => {
+      authState = s;
+    },
+  });
+
+  await client.login("race@example.com", "strongpassword123");
+  const inflightRefresh = client.refreshAccessToken();
+
+  // User clicks Sign out while /auth/refresh is still pending over the network
+  await client.logout();
+  assert.equal(client.getAccessToken(), null);
+  assert.equal(authState.isAuthenticated, false);
+
+  // Stale refresh response now arrives with 200 — MUST be discarded
+  resolveRefreshFetch(jsonResponse(200, { access_token: "resurrected-stale-token", token_type: "bearer" }));
+  const refreshOutcome = await inflightRefresh;
+  assert.equal(refreshOutcome, null);
+  assert.equal(client.getAccessToken(), null);
+  assert.equal(client.getUser(), null);
+  assert.equal(authState.isAuthenticated, false);
+});
+
+test("CP21 workspace resume versions client enforces consent, lists, deletes, and surfaces 404 isolation", async () => {
+  const mockFetch = async (url, opts = {}) => {
+    if (url === "/api/auth/login") {
+      return jsonResponse(200, { access_token: "tok-cp21", token_type: "bearer" });
+    }
+    if (url === "/api/auth/me") {
+      return jsonResponse(200, { id: "u1", email: "cp21@example.com", is_active: true });
+    }
+    if (url === "/api/workspaces/ws-1/resume-versions" && opts.method === "POST") {
+      const consent = opts.body?.get("consent");
+      if (consent !== "true") {
+        return jsonResponse(422, { detail: "Explicit consent is required" });
+      }
+      return jsonResponse(201, {
+        id: "rv-1",
+        workspace_id: "ws-1",
+        version_number: 1,
+        parsed_skills: new Array(14).fill(7),
+        predicted_role: "Software Developer",
+        top_k: [],
+        model_version: "frf_v1",
+        parser_model: "gemini-2.5-flash-lite",
+        created_at: "2026-11-26T18:30:00Z",
+      });
+    }
+    if (url === "/api/workspaces/ws-1/resume-versions" && opts.method === "GET") {
+      return jsonResponse(200, [{ id: "rv-1", version_number: 1 }]);
+    }
+    if (url === "/api/workspaces/ws-1/resume-versions/rv-1" && opts.method === "DELETE") {
+      return jsonResponse(204, null);
+    }
+    if (url === "/api/workspaces/other-ws/resume-versions") {
+      return jsonResponse(404, { detail: "Workspace not found" });
+    }
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+
+  const client = createApiClient({ fetchImpl: mockFetch });
+  await client.login("cp21@example.com", "strongpassword123");
+
+  const fakeFile = new Blob(["%PDF-1.4"], { type: "application/pdf" });
+  await assert.rejects(
+    () => client.uploadWorkspaceResumeVersion("ws-1", fakeFile, false),
+    (err) => err instanceof ApiError && err.status === 422
+  );
+
+  const created = await client.uploadWorkspaceResumeVersion("ws-1", fakeFile, true);
+  assert.equal(created.version_number, 1);
+  assert.equal(created.predicted_role, "Software Developer");
+
+  const listed = await client.listWorkspaceResumeVersions("ws-1");
+  assert.equal(listed.length, 1);
+
+  await client.deleteWorkspaceResumeVersion("ws-1", "rv-1");
+
+  await assert.rejects(
+    () => client.listWorkspaceResumeVersions("other-ws"),
+    (err) => err instanceof NotFoundError && err.status === 404
+  );
+});

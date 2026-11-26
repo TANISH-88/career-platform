@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     app.state.db_session_factory = create_session_factory(engine)
     app.state.auth_rate_limiter = InMemoryRateLimiter()
     app.state.login_email_rate_limiter = InMemoryRateLimiter()
+    app.state.resume_rate_limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60)
     app.state.feature_mapper = FeatureMapper(models_dir=_MODELS_DIR)
     app.state.predictor = PredictorService(models_dir=_MODELS_DIR)
     app.state.resume_parser = ResumeParser()

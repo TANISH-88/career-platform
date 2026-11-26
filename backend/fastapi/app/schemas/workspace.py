@@ -45,3 +45,17 @@ class PredictionHistoryItem(BaseModel):
     top_k: list[TopRole]
     model_version: str
     created_at: datetime
+
+
+class ResumeVersionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    workspace_id: str
+    version_number: int
+    parsed_skills: list[float]
+    predicted_role: str
+    top_k: list[TopRole]
+    model_version: str
+    parser_model: str
+    created_at: datetime

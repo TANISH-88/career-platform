@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import Features from "../../components/Features";
-import ResumeUpload from "../../components/ResumeUpload";
+import WorkspaceResumeVersions from "../../components/WorkspaceResumeVersions";
 import { useAuth } from "../../components/AuthContext";
 import { ORDERED_SKILL_KEYS, valuesArrayToMap } from "../../../lib/continuePopupLogic.mjs";
 
@@ -29,6 +29,7 @@ export default function WorkspaceDetailPage() {
 
   const [workspace, setWorkspace] = useState(null);
   const [history, setHistory] = useState([]);
+  const [resumeVersions, setResumeVersions] = useState([]);
   const [values, setValues] = useState({});
   const [prediction, setPrediction] = useState(null);
   const [predictError, setPredictError] = useState("");
@@ -43,14 +44,18 @@ export default function WorkspaceDetailPage() {
     setLoadError("");
     setNotFound(false);
     try {
-      const [ws, hist] = await Promise.all([
+      const [ws, hist, versions] = await Promise.all([
         api.getWorkspace(workspaceId),
         api.getWorkspaceHistory(workspaceId),
+        api.listWorkspaceResumeVersions(workspaceId),
       ]);
       setWorkspace(ws);
       setHistory(hist);
+      setResumeVersions(versions);
       if (hist.length > 0 && Array.isArray(hist[0].values)) {
         setValues(valuesArrayToMap(hist[0].values));
+      } else if (versions.length > 0 && Array.isArray(versions[0].parsed_skills)) {
+        setValues(valuesArrayToMap(versions[0].parsed_skills));
       }
       await refreshLastActive();
     } catch (err) {
@@ -62,6 +67,13 @@ export default function WorkspaceDetailPage() {
     } finally {
       setLoadingData(false);
     }
+  }, [api, workspaceId, refreshLastActive]);
+
+  const reloadResumeVersions = useCallback(async () => {
+    if (!workspaceId) return;
+    const versions = await api.listWorkspaceResumeVersions(workspaceId);
+    setResumeVersions(versions);
+    await refreshLastActive();
   }, [api, workspaceId, refreshLastActive]);
 
   useEffect(() => {
@@ -219,9 +231,16 @@ export default function WorkspaceDetailPage() {
         </div>
       </div>
 
-      <Features values={values} setValues={setValues} />
+      <WorkspaceResumeVersions
+        workspaceId={workspaceId}
+        api={api}
+        versions={resumeVersions}
+        onVersionsChange={reloadResumeVersions}
+        onApplyScores={(mapped) => setValues((prev) => ({ ...prev, ...mapped }))}
+        onWorkspaceDeleted={() => setNotFound(true)}
+      />
 
-      <ResumeUpload onApplyScores={(mapped) => setValues((prev) => ({ ...prev, ...mapped }))} />
+      <Features values={values} setValues={setValues} />
 
       <div className="mx-auto max-w-5xl px-6 mt-4 text-center">
         <button
@@ -266,12 +285,13 @@ export default function WorkspaceDetailPage() {
       <section className="mx-auto max-w-5xl px-6 mt-12">
         <div className="rounded-3xl border border-gray-200 bg-white/85 p-8 shadow-xl backdrop-blur">
           <h3 className="text-xl font-bold text-gray-900">
-            Prediction History ({history.length})
+            Manual Prediction History ({history.length})
           </h3>
 
           {history.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">
-              No saved predictions in this workspace yet. Run a prediction above to save it here.
+              No manual predictions saved in this workspace yet. Adjust skills above and predict to
+              save here.
             </p>
           ) : (
             <div className="mt-5 space-y-4">

@@ -10,6 +10,26 @@
 
 ---
 
+### Entry 24 — 2026-11-27 | P1 Part B2 (CP21) — Resume Version Management, Session Fixes & Browser Verification
+
+- **Backend CP21 (`app/db/models.py`, `alembic/versions/7e7a0f2e3301_part_b2_resume_versions.py`, `app/services/workspace_service.py`, `app/routes/workspaces.py`, `app/services/resume_parser.py`, `app/routes/resume.py`, `app/services/rate_limiter.py`):**
+  - Added `resume_versions` table and `ResumeVersion` ORM model linked to `workspaces` with `CASCADE` delete, storing only sequential `version_number`, 14 `parsed_skills`, `predicted_role`, `top_k`, `model_version`, `parser_model`, and `created_at` (zero raw file bytes, filenames, or extracted plaintext stored).
+  - Extracted shared `extract_and_score_resume()` validation/parsing helper used by both `POST /parse-resume` and workspace uploads.
+  - Added workspace endpoints: `POST /workspaces/{id}/resume-versions` (per-IP/user rate limit first, `MAX_RESUME_VERSIONS_PER_WORKSPACE=10` capacity check -> `409 Conflict` before Gemini invocation, explicit `consent=true` -> `422` otherwise, 5 MB + PDF/DOCX validation), `GET /workspaces/{id}/resume-versions`, `DELETE /workspaces/{id}/resume-versions/{version_id}`, and `DELETE /workspaces/{id}/resume-versions` with `404` owner isolation.
+  - Added `rate_limit_resume` (`20 req/60s` per IP and per authenticated user) on both `/workspaces/{id}/resume-versions` and `/parse-resume`.
+- **Frontend Session Hardening & CP21 UI (`my-app/lib/apiClient.mjs`, `my-app/app/components/AuthContext.jsx`, `my-app/app/components/WorkspaceResumeVersions.jsx`, `my-app/app/workspaces/[id]/page.js`):**
+  - Added cross-tab refresh serialization via Web Locks (`navigator.locks`) and `BroadcastChannel` sync (`TOKEN_REFRESHED`, `LOGOUT`, with `.unref()` when running under Node), monotonic `sessionEpoch` to discard stale refresh responses completed after `logout()`, and delayed `401` guard to reuse already-rotated tokens without issuing duplicate `/auth/refresh` calls.
+  - Built `WorkspaceResumeVersions` UI on `/workspaces/[id]` with explicit consent checkbox gating upload, `10`-version indicator, expandable 14-skill readings + `Load into inputs`, per-version delete, and `"Delete all resume data"` confirmation.
+- **Verification & Browser Evidence ([docs/p1/browser-verification-b2.md](docs/p1/browser-verification-b2.md), [docs/p1/design.md](docs/p1/design.md)):**
+  - Live Chrome (`158.0.8127.38`) verification on `http://localhost:3000` (`next start`) + `http://127.0.0.1:8000` verified anonymous prediction, registration, workspace creation + prediction + CP21 consent-gated UI, reload session persistence via `HttpOnly; SameSite=lax` cookie refresh, `"Continue where you left off"` popup + continuation, archive/restore, sign out, and re-login with zero uncaught JS/React errors.
+  - Explicitly unverified locally: **live Google Sign-In** (local config renders `"Google Sign-In unavailable in local config (set NEXT_PUBLIC_GOOGLE_CLIENT_ID to enable)."` — covered via mocked token tests) and direct DevTools `evaluate_script` inspection of `localStorage`/`sessionStorage` (timed out on permission prompt; enforced in `apiClient.mjs` and covered by unit tests).
+- **Tests & Build:**
+  - Backend: `backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.63s` (including new CP21 privacy, isolation, cascade, consent, 409/413/415/429 tests); `ruff check --select E9,F63,F7,F82 backend/fastapi` -> `All checks passed!`.
+  - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`, `✓ Generating static pages (7/7)`.
+- **Evidence:** `pending commit | pytest -> 75 passed, 16 warnings | npm test -> 10 passed, 0 failed | npm run build -> ✓ Compiled successfully | CI: verifying on push`
+
+---
+
 ### Entry 23 — 2026-11-26 | P1 Part B — Frontend Auth, Workspaces & Same-Origin Proxy
 
 - **Same-Origin Proxy & Env Config:**

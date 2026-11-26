@@ -34,6 +34,9 @@ const NO_AUTO_REFRESH_PATHS = new Set([
   "/auth/logout",
 ]);
 
+const REFRESH_LOCK_NAME = "futurepredict_refresh_lock";
+const AUTH_CHANNEL_NAME = "futurepredict_auth";
+
 async function safeParseJson(response) {
   if (response.status === 204) return null;
   const text = await response.text();
@@ -45,22 +48,72 @@ async function safeParseJson(response) {
   }
 }
 
+function makeTabId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  return `tab-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 /**
- * Create a frontend API client that keeps the JWT access token strictly in
- * memory (closure scope, never localStorage/sessionStorage), proxies through
- * same-origin `/api/*`, sends `X-Requested-With` on cookie endpoints, and
- * deduplicates concurrent refresh requests via a single-flight lock.
+ * Create a frontend API client with:
+ * - In-memory-only JWT access token (never localStorage/sessionStorage).
+ * - Same-origin `/api/*` proxy + `X-Requested-With` CSRF header on cookie endpoints.
+ * - Single-flight same-tab refresh + cross-tab coordination via Web Locks (`navigator.locks`)
+ *   and `BroadcastChannel` (`TOKEN_REFRESHED`, `LOGOUT`).
+ * - Monotonic `sessionEpoch` guard preventing logout-during-refresh from resurrecting auth state.
+ * - Delayed 401 guard: if `accessToken` already rotated since the failed request was sent,
+ *   retries directly with the newer token without firing a duplicate `/auth/refresh`.
  */
 export function createApiClient({
   fetchImpl = (...args) => globalThis.fetch(...args),
   baseUrl = "/api",
   onAuthChange = () => {},
   onSessionExpired = () => {},
+  locksImpl = globalThis.navigator?.locks ?? null,
+  broadcastChannelFactory = typeof globalThis.BroadcastChannel === "function"
+    ? (name) => new globalThis.BroadcastChannel(name)
+    : null,
 } = {}) {
+  const tabId = makeTabId();
   let accessToken = null;
   let currentUser = null;
   let hadAuthenticatedSession = false;
   let inflightRefreshPromise = null;
+  let sessionEpoch = 0;
+
+  // Cross-tab in-memory sync state (never persisted to storage)
+  let peerRefreshSeq = 0;
+  let peerLatestToken = null;
+
+  const channel = broadcastChannelFactory ? broadcastChannelFactory(AUTH_CHANNEL_NAME) : null;
+  if (channel) {
+    if (typeof channel.unref === "function") {
+      channel.unref();
+    }
+    channel.onmessage = (event) => {
+      const msg = event?.data;
+      if (!msg || msg.sourceTabId === tabId) return;
+
+      if (msg.type === "TOKEN_REFRESHED" && typeof msg.accessToken === "string") {
+        peerRefreshSeq += 1;
+        peerLatestToken = msg.accessToken;
+        accessToken = msg.accessToken;
+        hadAuthenticatedSession = true;
+      } else if (msg.type === "LOGOUT") {
+        applyLocalClear({ markExpired: false, broadcast: false });
+      }
+    };
+  }
+
+  function postChannel(payload) {
+    if (!channel) return;
+    try {
+      channel.postMessage({ ...payload, sourceTabId: tabId });
+    } catch {
+      // Ignore closed channel errors during teardown
+    }
+  }
 
   function notifyAuth() {
     onAuthChange({
@@ -69,15 +122,27 @@ export function createApiClient({
     });
   }
 
-  function clearSession({ markExpired = false } = {}) {
+  function applyLocalClear({ markExpired = false, broadcast = false } = {}) {
     const wasAuthenticated = hadAuthenticatedSession || Boolean(accessToken || currentUser);
+    sessionEpoch += 1;
     accessToken = null;
     currentUser = null;
     hadAuthenticatedSession = false;
+    peerLatestToken = null;
     notifyAuth();
+    if (broadcast) {
+      postChannel({ type: "LOGOUT" });
+    }
     if (markExpired && wasAuthenticated) {
       onSessionExpired();
     }
+  }
+
+  async function withCrossTabLock(fn) {
+    if (locksImpl && typeof locksImpl.request === "function") {
+      return locksImpl.request(REFRESH_LOCK_NAME, fn);
+    }
+    return fn();
   }
 
   function getAccessToken() {
@@ -88,49 +153,98 @@ export function createApiClient({
     return currentUser;
   }
 
+  function close() {
+    if (channel && typeof channel.close === "function") {
+      channel.close();
+    }
+  }
+
   /**
-   * Perform a single-flight `POST /api/auth/refresh`.
-   * Multiple concurrent callers share the exact same in-flight promise so only
-   * one network request reaches the backend, avoiding false reuse detection
-   * against atomic refresh token rotation.
+   * Single-flight same-tab + Web-Lock serialized cross-tab refresh.
+   * Respects `sessionEpoch` so logout-during-refresh cannot resurrect a dead session.
    */
-  async function refreshAccessToken({ silentIfUnauthenticated = false } = {}) {
+  async function refreshAccessToken({
+    silentIfUnauthenticated = false,
+    failedToken = null,
+  } = {}) {
     if (inflightRefreshPromise) {
       return inflightRefreshPromise;
     }
 
-    inflightRefreshPromise = (async () => {
+    const startEpoch = sessionEpoch;
+    const waitStartedSeq = peerRefreshSeq;
+    const tokenBeforeRefresh = failedToken ?? accessToken;
+
+    const promise = (async () => {
       try {
-        const res = await fetchImpl(`${baseUrl}/auth/refresh`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            ...CSRF_HEADERS,
-          },
+        return await withCrossTabLock(async () => {
+          // If logout/session reset occurred while waiting, abort immediately.
+          if (sessionEpoch !== startEpoch) {
+            return null;
+          }
+
+          // If another tab already refreshed while we waited for the lock, adopt its token.
+          if (
+            peerRefreshSeq > waitStartedSeq &&
+            peerLatestToken &&
+            peerLatestToken !== tokenBeforeRefresh
+          ) {
+            accessToken = peerLatestToken;
+            hadAuthenticatedSession = true;
+            return accessToken;
+          }
+
+          // If this tab already rotated to a newer token before lock entry, adopt it.
+          if (accessToken && tokenBeforeRefresh && accessToken !== tokenBeforeRefresh) {
+            return accessToken;
+          }
+
+          const res = await fetchImpl(`${baseUrl}/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+            headers: { ...CSRF_HEADERS },
+          });
+          const data = await safeParseJson(res);
+
+          // CRITICAL: If user logged out while refresh was in flight, discard response!
+          if (sessionEpoch !== startEpoch) {
+            return null;
+          }
+
+          if (!res.ok || !data?.access_token) {
+            applyLocalClear({ markExpired: !silentIfUnauthenticated, broadcast: false });
+            return null;
+          }
+
+          accessToken = data.access_token;
+          hadAuthenticatedSession = true;
+          peerLatestToken = data.access_token;
+          postChannel({ type: "TOKEN_REFRESHED", accessToken: data.access_token });
+          return accessToken;
         });
-        const data = await safeParseJson(res);
-        if (!res.ok || !data?.access_token) {
-          clearSession({ markExpired: !silentIfUnauthenticated });
-          return null;
-        }
-        accessToken = data.access_token;
-        hadAuthenticatedSession = true;
-        return accessToken;
       } catch {
-        clearSession({ markExpired: !silentIfUnauthenticated });
+        if (sessionEpoch === startEpoch) {
+          applyLocalClear({ markExpired: !silentIfUnauthenticated, broadcast: false });
+        }
         return null;
       } finally {
-        inflightRefreshPromise = null;
+        if (inflightRefreshPromise === promise) {
+          inflightRefreshPromise = null;
+        }
       }
     })();
 
-    return inflightRefreshPromise;
+    inflightRefreshPromise = promise;
+    return promise;
   }
 
   async function rawRequest(path, options = {}, { includeAuth = true, retryOn401 = true } = {}) {
     const headers = new Headers(options.headers || {});
+    const requestEpoch = sessionEpoch;
+    let tokenUsed = null;
     if (includeAuth && accessToken && !headers.has("Authorization")) {
-      headers.set("Authorization", `Bearer ${accessToken}`);
+      tokenUsed = accessToken;
+      headers.set("Authorization", `Bearer ${tokenUsed}`);
     }
 
     const res = await fetchImpl(`${baseUrl}${path}`, {
@@ -141,10 +255,28 @@ export function createApiClient({
 
     const isNoRefreshPath = NO_AUTO_REFRESH_PATHS.has(path);
     if (res.status === 401 && retryOn401 && includeAuth && !isNoRefreshPath) {
-      const nextToken = await refreshAccessToken({ silentIfUnauthenticated: false });
-      if (!nextToken) {
+      // If session epoch changed (e.g., user logged out while request was in flight),
+      // abort without attempting refresh.
+      if (sessionEpoch !== requestEpoch) {
         throw new SessionExpiredError();
       }
+
+      // Delayed 401 guard: another request/tab already rotated accessToken while
+      // this slow request was in flight — retry directly with the newer token.
+      let nextToken = null;
+      if (tokenUsed && accessToken && accessToken !== tokenUsed) {
+        nextToken = accessToken;
+      } else {
+        nextToken = await refreshAccessToken({
+          silentIfUnauthenticated: false,
+          failedToken: tokenUsed,
+        });
+      }
+
+      if (!nextToken || sessionEpoch !== requestEpoch) {
+        throw new SessionExpiredError();
+      }
+
       const retryHeaders = new Headers(options.headers || {});
       retryHeaders.set("Authorization", `Bearer ${nextToken}`);
       return fetchImpl(`${baseUrl}${path}`, {
@@ -167,7 +299,7 @@ export function createApiClient({
         throw new NotFoundError(detail, detail);
       }
       if (res.status === 401 && config.includeAuth !== false && !NO_AUTO_REFRESH_PATHS.has(path)) {
-        clearSession({ markExpired: true });
+        applyLocalClear({ markExpired: true, broadcast: false });
         throw new SessionExpiredError(detail);
       }
       throw new ApiError(detail, res.status, detail);
@@ -176,8 +308,11 @@ export function createApiClient({
     return data;
   }
 
-  async function loadCurrentUser() {
+  async function loadCurrentUser(expectedEpoch = sessionEpoch) {
     const user = await requestJson("/auth/me", { method: "GET" });
+    if (sessionEpoch !== expectedEpoch) {
+      return null;
+    }
     currentUser = user;
     hadAuthenticatedSession = true;
     notifyAuth();
@@ -185,19 +320,23 @@ export function createApiClient({
   }
 
   async function bootstrapSession() {
+    const startEpoch = sessionEpoch;
     const token = await refreshAccessToken({ silentIfUnauthenticated: true });
-    if (!token) {
+    if (!token || sessionEpoch !== startEpoch) {
       return null;
     }
     try {
-      return await loadCurrentUser();
+      return await loadCurrentUser(startEpoch);
     } catch {
-      clearSession({ markExpired: false });
+      if (sessionEpoch === startEpoch) {
+        applyLocalClear({ markExpired: false, broadcast: false });
+      }
       return null;
     }
   }
 
   async function login(email, password) {
+    const startEpoch = sessionEpoch;
     const data = await requestJson(
       "/auth/login",
       {
@@ -207,9 +346,13 @@ export function createApiClient({
       },
       { includeAuth: false, retryOn401: false }
     );
+    if (sessionEpoch !== startEpoch) {
+      return null;
+    }
     accessToken = data.access_token;
     hadAuthenticatedSession = true;
-    return loadCurrentUser();
+    peerLatestToken = data.access_token;
+    return loadCurrentUser(startEpoch);
   }
 
   async function register(email, password) {
@@ -226,6 +369,7 @@ export function createApiClient({
   }
 
   async function googleLogin(idToken) {
+    const startEpoch = sessionEpoch;
     const res = await rawRequest(
       "/auth/google",
       {
@@ -250,13 +394,19 @@ export function createApiClient({
       throw new ApiError(data?.detail || "Google Sign-In failed", res.status, data?.detail);
     }
 
+    if (sessionEpoch !== startEpoch) {
+      return { status: "cancelled", user: null };
+    }
+
     accessToken = data.access_token;
     hadAuthenticatedSession = true;
-    const user = await loadCurrentUser();
+    peerLatestToken = data.access_token;
+    const user = await loadCurrentUser(startEpoch);
     return { status: "authenticated", user };
   }
 
   async function googleLink(idToken, password) {
+    const startEpoch = sessionEpoch;
     const data = await requestJson(
       "/auth/google/link",
       {
@@ -266,13 +416,20 @@ export function createApiClient({
       },
       { includeAuth: false, retryOn401: false }
     );
+    if (sessionEpoch !== startEpoch) {
+      return { status: "cancelled", user: null };
+    }
     accessToken = data.access_token;
     hadAuthenticatedSession = true;
-    const user = await loadCurrentUser();
+    peerLatestToken = data.access_token;
+    const user = await loadCurrentUser(startEpoch);
     return { status: "authenticated", user };
   }
 
   async function logout() {
+    // Clear local session state & bump sessionEpoch BEFORE awaiting network so any
+    // in-flight refresh cannot resurrect the session.
+    applyLocalClear({ markExpired: false, broadcast: true });
     try {
       await rawRequest(
         "/auth/logout",
@@ -282,8 +439,8 @@ export function createApiClient({
         },
         { includeAuth: false, retryOn401: false }
       );
-    } finally {
-      clearSession({ markExpired: false });
+    } catch {
+      // Logout guarantees local state stays cleared even if server/network errors
     }
   }
 
@@ -351,6 +508,37 @@ export function createApiClient({
     });
   }
 
+  // --- Resume Version Management (CP21) ---
+
+  async function listWorkspaceResumeVersions(workspaceId) {
+    return requestJson(`/workspaces/${encodeURIComponent(workspaceId)}/resume-versions`, {
+      method: "GET",
+    });
+  }
+
+  async function uploadWorkspaceResumeVersion(workspaceId, file, consent) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("consent", consent ? "true" : "false");
+    return requestJson(`/workspaces/${encodeURIComponent(workspaceId)}/resume-versions`, {
+      method: "POST",
+      body: formData,
+    });
+  }
+
+  async function deleteWorkspaceResumeVersion(workspaceId, versionId) {
+    return requestJson(
+      `/workspaces/${encodeURIComponent(workspaceId)}/resume-versions/${encodeURIComponent(versionId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async function deleteAllWorkspaceResumeVersions(workspaceId) {
+    return requestJson(`/workspaces/${encodeURIComponent(workspaceId)}/resume-versions`, {
+      method: "DELETE",
+    });
+  }
+
   // --- Anonymous APIs (never attach Authorization header, never touch workspaces) ---
 
   async function predictAnonymous(values) {
@@ -388,6 +576,7 @@ export function createApiClient({
     googleLogin,
     googleLink,
     logout,
+    close,
     listWorkspaces,
     createWorkspace,
     getLastActiveWorkspace,
@@ -397,9 +586,12 @@ export function createApiClient({
     deleteWorkspace,
     predictInWorkspace,
     getWorkspaceHistory,
+    listWorkspaceResumeVersions,
+    uploadWorkspaceResumeVersion,
+    deleteWorkspaceResumeVersion,
+    deleteAllWorkspaceResumeVersions,
     predictAnonymous,
     parseResume,
-    // Expose low-level request helper for tests / custom calls
     requestJson,
   };
 }

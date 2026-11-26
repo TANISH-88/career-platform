@@ -69,6 +69,12 @@ export function AuthProvider({ children }) {
     };
   }, [api, refreshLastActive]);
 
+  useEffect(() => {
+    return () => {
+      api.close?.();
+    };
+  }, [api]);
+
   const login = useCallback(
     async (email, password) => {
       setContinueDismissed(false);

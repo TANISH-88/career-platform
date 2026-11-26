@@ -52,3 +52,15 @@ def rate_limit_login_email(request: Request, email: str) -> None:
         request.app.state.login_email_rate_limiter = limiter
     normalized = email.strip().lower()
     limiter.check(f"auth_email:{normalized}")
+
+
+def rate_limit_resume(request: Request, user_id: str | None = None) -> None:
+    """Rate limit resume parsing / LLM calls per IP (and per user when authenticated)."""
+    limiter: InMemoryRateLimiter | None = getattr(request.app.state, "resume_rate_limiter", None)
+    if limiter is None:
+        limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60)
+        request.app.state.resume_rate_limiter = limiter
+    client_ip = request.client.host if request.client else "unknown"
+    limiter.check(f"resume_ip:{client_ip}")
+    if user_id:
+        limiter.check(f"resume_user:{user_id}")
