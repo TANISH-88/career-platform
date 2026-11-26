@@ -1,51 +1,78 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
-from app.config.settings import get_refresh_token_expire_days, is_production
+from app.config.settings import (
+    get_refresh_token_expire_days,
+    is_cookie_secure,
+    use_samesite_none_cookie,
+)
 from app.db.models import User
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    GoogleLoginRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.services.auth_service import (
     EmailAlreadyExistsError,
     InvalidCredentialsError,
     InvalidTokenError,
+    authenticate_google_user,
     authenticate_user,
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    get_active_user,
     get_current_user,
+    issue_token_pair,
     register_user,
+    revoke_refresh_token,
+    rotate_refresh_token,
 )
-from app.services.rate_limiter import rate_limit_auth
+from app.services.rate_limiter import rate_limit_auth, rate_limit_login_email
 
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 REFRESH_COOKIE_NAME = "refresh_token"
+REFRESH_COOKIE_PATH = "/"
+
+
+def _cookie_policy() -> tuple[bool, str]:
+    samesite = "none" if use_samesite_none_cookie() else "lax"
+    secure = is_cookie_secure()
+    return secure, samesite
 
 
 def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
-    prod = is_production()
+    secure, samesite = _cookie_policy()
     response.set_cookie(
         key=REFRESH_COOKIE_NAME,
         value=refresh_token,
         httponly=True,
-        secure=prod,
-        samesite="none" if prod else "lax",
-        path="/auth",
+        secure=secure,
+        samesite=samesite,
+        path=REFRESH_COOKIE_PATH,
         max_age=get_refresh_token_expire_days() * 24 * 60 * 60,
     )
 
 
 def _clear_refresh_cookie(response: Response) -> None:
-    prod = is_production()
+    secure, samesite = _cookie_policy()
     response.delete_cookie(
         key=REFRESH_COOKIE_NAME,
         httponly=True,
-        secure=prod,
-        samesite="none" if prod else "lax",
-        path="/auth",
+        secure=secure,
+        samesite=samesite,
+        path=REFRESH_COOKIE_PATH,
     )
+
+
+def require_csrf_header(
+    x_requested_with: str | None = Header(default=None, alias="X-Requested-With"),
+) -> None:
+    if not x_requested_with or not x_requested_with.strip():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Missing X-Requested-With header",
+        )
 
 
 @auth_router.post(
@@ -66,7 +93,13 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
     response_model=TokenResponse,
     dependencies=[Depends(rate_limit_auth)],
 )
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(
+    payload: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    rate_limit_login_email(request, payload.email)
     try:
         user = authenticate_user(db, email=payload.email, password=payload.password)
     except InvalidCredentialsError as exc:
@@ -75,14 +108,41 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
             detail=str(exc),
         ) from exc
 
-    access_token = create_access_token(user.id)
-    refresh_token = create_refresh_token(user.id)
+    access_token, refresh_token = issue_token_pair(db, user.id)
     _set_refresh_cookie(response, refresh_token)
     return TokenResponse(access_token=access_token)
 
 
-@auth_router.post("/refresh", response_model=TokenResponse)
+@auth_router.post(
+    "/google",
+    response_model=TokenResponse,
+    dependencies=[Depends(rate_limit_auth)],
+)
+def google_login(
+    payload: GoogleLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    try:
+        user = authenticate_google_user(db, payload.id_token)
+    except (InvalidCredentialsError, InvalidTokenError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(exc),
+        ) from exc
+
+    access_token, refresh_token = issue_token_pair(db, user.id)
+    _set_refresh_cookie(response, refresh_token)
+    return TokenResponse(access_token=access_token)
+
+
+@auth_router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    dependencies=[Depends(require_csrf_header)],
+)
 def refresh(
+    response: Response,
     refresh_token: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
     db: Session = Depends(get_db),
 ):
@@ -92,25 +152,28 @@ def refresh(
             detail="Missing refresh token",
         )
     try:
-        user_id = decode_token(refresh_token, expected_type="refresh")
+        access_token, new_refresh_token = rotate_refresh_token(db, refresh_token)
     except InvalidTokenError as exc:
+        _clear_refresh_cookie(response)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired refresh token",
+            detail=str(exc),
         ) from exc
 
-    user = get_active_user(db, user_id)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or inactive",
-        )
-
-    return TokenResponse(access_token=create_access_token(user.id))
+    _set_refresh_cookie(response, new_refresh_token)
+    return TokenResponse(access_token=access_token)
 
 
-@auth_router.post("/logout")
-def logout(response: Response):
+@auth_router.post(
+    "/logout",
+    dependencies=[Depends(require_csrf_header)],
+)
+def logout(
+    response: Response,
+    refresh_token: str | None = Cookie(default=None, alias=REFRESH_COOKIE_NAME),
+    db: Session = Depends(get_db),
+):
+    revoke_refresh_token(db, refresh_token)
     _clear_refresh_cookie(response)
     return {"detail": "Logged out"}
 

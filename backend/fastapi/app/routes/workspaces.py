@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.db.models import User
@@ -13,12 +13,15 @@ from app.schemas.workspace import (
 from app.services.auth_service import get_current_user
 from app.services.workspace_service import (
     WorkspaceNotFoundError,
+    archive_workspace,
     create_workspace,
     delete_workspace,
+    get_last_active_workspace,
     get_workspace_for_user,
     get_workspace_history,
     list_workspaces,
     predict_in_workspace,
+    unarchive_workspace,
 )
 
 workspaces_router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -35,10 +38,22 @@ def create_workspace_route(
 
 @workspaces_router.get("", response_model=list[WorkspaceResponse])
 def list_workspaces_route(
+    include_archived: bool = Query(default=False),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return list_workspaces(db, user_id=current_user.id)
+    return list_workspaces(db, user_id=current_user.id, include_archived=include_archived)
+
+
+@workspaces_router.get("/last-active", response_model=WorkspaceResponse)
+def get_last_active_workspace_route(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return get_last_active_workspace(db, user_id=current_user.id)
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
 
 @workspaces_router.get("/{workspace_id}", response_model=WorkspaceResponse)
@@ -48,7 +63,33 @@ def get_workspace_route(
     db: Session = Depends(get_db),
 ):
     try:
-        return get_workspace_for_user(db, workspace_id=workspace_id, user_id=current_user.id)
+        return get_workspace_for_user(
+            db, workspace_id=workspace_id, user_id=current_user.id, mark_opened=True
+        )
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@workspaces_router.post("/{workspace_id}/archive", response_model=WorkspaceResponse)
+def archive_workspace_route(
+    workspace_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return archive_workspace(db, workspace_id=workspace_id, user_id=current_user.id)
+    except WorkspaceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@workspaces_router.post("/{workspace_id}/unarchive", response_model=WorkspaceResponse)
+def unarchive_workspace_route(
+    workspace_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        return unarchive_workspace(db, workspace_id=workspace_id, user_id=current_user.id)
     except WorkspaceNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 

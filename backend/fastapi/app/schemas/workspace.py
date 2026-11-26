@@ -22,6 +22,8 @@ class WorkspaceResponse(BaseModel):
 
     id: str
     name: str
+    archived_at: datetime | None = None
+    last_opened_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

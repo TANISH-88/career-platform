@@ -1,3 +1,5 @@
+import hashlib
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -5,16 +7,19 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.config.settings import (
     get_access_token_expire_minutes,
+    get_google_client_id,
     get_jwt_algorithm,
     get_jwt_secret,
     get_refresh_token_expire_days,
 )
-from app.db.models import User
+from app.db.models import RefreshToken, User
 from app.db.session import get_db
 
 _password_hasher = PasswordHasher()
@@ -34,7 +39,7 @@ class InvalidCredentialsError(AuthError):
 
 
 class InvalidTokenError(AuthError):
-    """Raised when a JWT is missing, expired, malformed, or wrong type."""
+    """Raised when a JWT or Google ID token is missing, expired, malformed, or reused."""
 
 
 def hash_password(password: str) -> str:
@@ -46,6 +51,14 @@ def verify_password(password: str, password_hash: str) -> bool:
         return _password_hasher.verify(password_hash, password)
     except (VerifyMismatchError, InvalidHashError):
         return False
+
+
+def _hash_jti(jti: str) -> str:
+    return hashlib.sha256(jti.encode("utf-8")).hexdigest()
+
+
+def _as_utc(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
 def create_access_token(user_id: str, expires_delta: timedelta | None = None) -> str:
@@ -60,19 +73,41 @@ def create_access_token(user_id: str, expires_delta: timedelta | None = None) ->
     return jwt.encode(payload, get_jwt_secret(), algorithm=get_jwt_algorithm())
 
 
-def create_refresh_token(user_id: str, expires_delta: timedelta | None = None) -> str:
-    now = datetime.now(timezone.utc)
-    delta = expires_delta or timedelta(days=get_refresh_token_expire_days())
+def _encode_refresh_jwt(user_id: str, jti: str, now: datetime, expires_at: datetime) -> str:
     payload = {
         "sub": user_id,
         "type": "refresh",
+        "jti": jti,
         "iat": now,
-        "exp": now + delta,
+        "exp": expires_at,
     }
     return jwt.encode(payload, get_jwt_secret(), algorithm=get_jwt_algorithm())
 
 
-def decode_token(token: str, expected_type: str) -> str:
+def issue_token_pair(
+    db: Session,
+    user_id: str,
+    refresh_expires_delta: timedelta | None = None,
+) -> tuple[str, str]:
+    now = datetime.now(timezone.utc)
+    delta = refresh_expires_delta or timedelta(days=get_refresh_token_expire_days())
+    expires_at = now + delta
+    jti = str(uuid.uuid4())
+
+    token_row = RefreshToken(
+        user_id=user_id,
+        jti_hash=_hash_jti(jti),
+        expires_at=expires_at,
+    )
+    db.add(token_row)
+    db.commit()
+
+    access_token = create_access_token(user_id)
+    refresh_token = _encode_refresh_jwt(user_id=user_id, jti=jti, now=now, expires_at=expires_at)
+    return access_token, refresh_token
+
+
+def decode_token(token: str, expected_type: str) -> dict:
     try:
         payload = jwt.decode(
             token,
@@ -88,7 +123,81 @@ def decode_token(token: str, expected_type: str) -> str:
     subject = payload.get("sub")
     if not isinstance(subject, str) or not subject:
         raise InvalidTokenError("Invalid token subject")
-    return subject
+    return payload
+
+
+def rotate_refresh_token(db: Session, refresh_token: str) -> tuple[str, str]:
+    payload = decode_token(refresh_token, expected_type="refresh")
+    jti = payload.get("jti")
+    if not isinstance(jti, str) or not jti:
+        raise InvalidTokenError("Refresh token missing jti")
+
+    token_row = db.scalar(select(RefreshToken).where(RefreshToken.jti_hash == _hash_jti(jti)))
+    if token_row is None:
+        raise InvalidTokenError("Unknown refresh token")
+
+    now = datetime.now(timezone.utc)
+    if token_row.revoked_at is not None:
+        # Compromised/reused refresh token detected: revoke all active tokens for this user.
+        db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.user_id == token_row.user_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=now)
+        )
+        db.commit()
+        raise InvalidTokenError("Refresh token has been revoked")
+
+    if _as_utc(token_row.expires_at) <= now:
+        raise InvalidTokenError("Refresh token expired")
+
+    user = get_active_user(db, token_row.user_id)
+    if user is None:
+        raise InvalidTokenError("User not found or inactive")
+
+    new_jti = str(uuid.uuid4())
+    new_expires_at = now + timedelta(days=get_refresh_token_expire_days())
+    new_row = RefreshToken(
+        user_id=user.id,
+        jti_hash=_hash_jti(new_jti),
+        expires_at=new_expires_at,
+    )
+    db.add(new_row)
+    db.flush()
+
+    token_row.revoked_at = now
+    token_row.replaced_by = new_row.id
+    db.commit()
+
+    access_token = create_access_token(user.id)
+    new_refresh_jwt = _encode_refresh_jwt(
+        user_id=user.id, jti=new_jti, now=now, expires_at=new_expires_at
+    )
+    return access_token, new_refresh_jwt
+
+
+def revoke_refresh_token(db: Session, refresh_token: str | None) -> None:
+    if not refresh_token:
+        return
+    try:
+        payload = jwt.decode(
+            refresh_token,
+            get_jwt_secret(),
+            algorithms=[get_jwt_algorithm()],
+            options={"verify_exp": False},
+        )
+    except jwt.PyJWTError:
+        return
+
+    if payload.get("type") != "refresh":
+        return
+    jti = payload.get("jti")
+    if not isinstance(jti, str) or not jti:
+        return
+
+    token_row = db.scalar(select(RefreshToken).where(RefreshToken.jti_hash == _hash_jti(jti)))
+    if token_row is not None and token_row.revoked_at is None:
+        token_row.revoked_at = datetime.now(timezone.utc)
+        db.commit()
 
 
 def register_user(db: Session, email: str, password: str) -> User:
@@ -110,8 +219,63 @@ def register_user(db: Session, email: str, password: str) -> User:
 def authenticate_user(db: Session, email: str, password: str) -> User:
     normalized_email = email.strip().lower()
     user = db.scalar(select(User).where(User.email == normalized_email))
-    if user is None or not user.is_active or not verify_password(password, user.password_hash):
+    if (
+        user is None
+        or not user.is_active
+        or not user.password_hash
+        or not verify_password(password, user.password_hash)
+    ):
         raise InvalidCredentialsError("Invalid email or password")
+    return user
+
+
+def verify_google_id_token(token: str) -> dict:
+    client_id = get_google_client_id()
+    if not client_id:
+        raise InvalidTokenError("Google login is not configured")
+    try:
+        claims = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            client_id,
+        )
+    except ValueError as exc:
+        raise InvalidTokenError("Invalid Google ID token") from exc
+    return claims
+
+
+def authenticate_google_user(db: Session, id_token_str: str) -> User:
+    claims = verify_google_id_token(id_token_str)
+    if claims.get("email_verified") is not True:
+        raise InvalidCredentialsError("Google email is not verified")
+
+    google_sub = claims.get("sub")
+    email = claims.get("email")
+    if not isinstance(google_sub, str) or not google_sub or not isinstance(email, str) or not email:
+        raise InvalidTokenError("Google token missing required user claims")
+
+    normalized_email = email.strip().lower()
+    user = db.scalar(select(User).where(User.google_sub == google_sub))
+    if user is None:
+        user = db.scalar(select(User).where(User.email == normalized_email))
+        if user is not None:
+            if user.google_sub is not None and user.google_sub != google_sub:
+                raise InvalidCredentialsError("Account is linked to a different Google account")
+            user.google_sub = google_sub
+            db.commit()
+            db.refresh(user)
+        else:
+            user = User(
+                email=normalized_email,
+                password_hash=None,
+                google_sub=google_sub,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+    if not user.is_active:
+        raise InvalidCredentialsError("User account is inactive")
     return user
 
 
@@ -131,7 +295,7 @@ def get_current_user(
         )
 
     try:
-        user_id = decode_token(credentials.credentials, expected_type="access")
+        payload = decode_token(credentials.credentials, expected_type="access")
     except InvalidTokenError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -139,7 +303,7 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
 
-    user = get_active_user(db, user_id)
+    user = get_active_user(db, payload["sub"])
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

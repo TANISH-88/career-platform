@@ -10,6 +10,19 @@
 
 ---
 
+### Entry 20 — 2026-11-26 | P1 Part A2 — Auth Hardening & Schema Extension
+
+- **Design:** Updated `docs/p1/design.md` first with fail-closed JWT/environment rules, DB-backed refresh token rotation & reuse detection (`refresh_tokens`), same-origin Next.js proxy `SameSite=Lax` cookie + `X-Requested-With` CSRF header, `--proxy-headers` + per-IP/per-email rate limiting, Google Sign-In flow (`users.google_sub`, nullable `password_hash`), workspace archive/last-active schema, and proposed CP21 resume-version retention rules (not coded in A2).
+- **Hardening & Extensions:**
+  - `app/config/settings.py`: removed hardcoded fallback JWT secret (ephemeral `secrets.token_urlsafe(32)` in dev with warning; fail-closed `RuntimeError` if `ENVIRONMENT` unset with non-SQLite `DATABASE_URL` or `ENVIRONMENT=production` without `JWT_SECRET`).
+  - `app/db/models.py` + Alembic migration `4f62965154d4_part_a2_hardening_and_schema_extension.py`: added `refresh_tokens`, `users.google_sub` + nullable `users.password_hash`, `workspaces.archived_at` + `workspaces.last_opened_at`.
+  - `app/services/auth_service.py` & `app/routes/auth.py`: refresh token rotation, logout revocation, reuse-detection global revocation, `X-Requested-With` CSRF guard, `POST /auth/google`, per-email + per-IP rate limiting, and `SameSite=Lax` cookie (`SameSite=None` behind `COOKIE_SAMESITE_NONE` fallback).
+  - `app/services/workspace_service.py` & `app/routes/workspaces.py`: added `archive`, `unarchive`, `include_archived` filter, `last-active`, and `last_opened_at` tracking.
+  - `infra/docker/Dockerfile.backend`: added `--proxy-headers --forwarded-allow-ips "${FORWARDED_ALLOW_IPS:-127.0.0.1}"` to `CMD`.
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 69 passed, 16 warnings in 31.25s ======================= | fresh alembic upgrade head -> Running upgrade f38e39a6071a -> 4f62965154d4 | CI: pending`
+
+---
+
 ### Entry 19 — 2026-11-26 | P1 Part A — Accounts & Workspaces Backend
 
 - **Design:** Added `docs/p1/design.md` with Mermaid ER diagram (`users`, `workspaces`, `skill_profiles`, `predictions`), Argon2id + PyJWT auth flow, cross-origin `HttpOnly` refresh cookie + memory-only access token decision, and follow-up note for `/parse-resume` rate limiting.

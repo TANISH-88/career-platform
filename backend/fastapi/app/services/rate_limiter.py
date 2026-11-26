@@ -42,4 +42,13 @@ def rate_limit_auth(request: Request) -> None:
         limiter = InMemoryRateLimiter()
         request.app.state.auth_rate_limiter = limiter
     client_ip = request.client.host if request.client else "unknown"
-    limiter.check(f"auth:{client_ip}")
+    limiter.check(f"auth_ip:{client_ip}")
+
+
+def rate_limit_login_email(request: Request, email: str) -> None:
+    limiter: InMemoryRateLimiter | None = getattr(request.app.state, "login_email_rate_limiter", None)
+    if limiter is None:
+        limiter = InMemoryRateLimiter()
+        request.app.state.login_email_rate_limiter = limiter
+    normalized = email.strip().lower()
+    limiter.check(f"auth_email:{normalized}")
