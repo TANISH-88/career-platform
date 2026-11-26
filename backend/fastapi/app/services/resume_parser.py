@@ -7,7 +7,6 @@ import os
 
 import pdfplumber
 import docx
-from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
@@ -98,7 +97,6 @@ def extract_and_score_resume(
 
 class ResumeParser:
     def __init__(self) -> None:
-        load_dotenv()
         api_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY is not set")

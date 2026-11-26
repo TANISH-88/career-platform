@@ -1,5 +1,11 @@
+import os
 import pathlib
 from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+
+if not os.environ.get("PYTEST_CURRENT_TEST"):
+    load_dotenv()  # Load .env once at process start outside pytest
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError

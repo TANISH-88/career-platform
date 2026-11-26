@@ -39,7 +39,7 @@ ROLE_MAPPING: dict[int, str] = {
 }
 
 # --- Phase 2 additions ---
-GEMINI_MODEL: str = "gemini-2.5-flash-lite"
+GEMINI_MODEL: str = "gemini-3.5-flash-lite"
 MAX_RESUME_BYTES: int = 5 * 1024 * 1024   # 5 MB
 MAX_RESUME_VERSIONS_PER_WORKSPACE: int = 10
 

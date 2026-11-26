@@ -10,6 +10,22 @@
 
 ---
 
+### Entry 25 — 2026-11-27 | P1 Part C — Live Google Sign-In, Gemini Resume Analysis & DB Persistence
+
+- **Startup & Gemini Model Fixes (`backend/fastapi/app/services/resume_parser.py`, `backend/fastapi/app/main.py`, `backend/fastapi/app/config/constants.py`):**
+  - Removed `load_dotenv()` from `ResumeParser.__init__()` and moved it to `app/main.py` guarded by `if not os.environ.get("PYTEST_CURRENT_TEST"):`, resolving the `test_startup_fails_without_gemini_api_key` failure when `backend/.env` is present locally.
+  - Updated `GEMINI_MODEL` from `"gemini-2.5-flash-lite"` to `"gemini-3.5-flash-lite"` after live Gemini API verification returned `404 NOT_FOUND` (model retired for new keys).
+- **Live Browser Verification ([docs/p1/browser-verification-c.md](docs/p1/browser-verification-c.md)):**
+  - **Google Sign-In:** Verified live OAuth flow on `http://localhost:3000/login` (`POST /api/auth/google` -> `200`, `GET /api/auth/me` -> `200` for `tanishpalsingh5095@gmail.com`, `google_sub` set, `password_hash` `NULL`).
+  - **Gemini Resume Analysis:** Uploaded synthetic PDF (`synthetic_resume.pdf`) in workspace `3aa34582-12a8-4982-840f-d40e7acb7833` (`POST .../resume-versions` -> `201`), receiving `v1` with `ML: frf_v1`, `LLM: gemini-3.5-flash-lite`, `predicted_role: Application Support Engineer`, 14 non-stub Gemini-derived scores (`8.5, 9.0, 8.0, 8.5, 9.0, 9.5, 7.5, 8.0, 5.0, 8.0, 8.5, 5.0, 6.5, 7.0`), and verified `Load into inputs`.
+  - **DB Persistence & Storage Security:** Verified user, workspace, and resume version rows persisted in SQLite (`partc_verify.db`) across backend server restart; `Object.keys(localStorage)` = `[]`, `Object.keys(sessionStorage)` = `[]`; `0` console errors and `0` failed network requests on final session.
+- **Tests & Lint:**
+  - Backend: `venv\Scripts\python.exe -m pytest tests/ -x --tb=short -q` -> `75 passed, 16 warnings in 35.80s`; `ruff check app/ --select E9,F63,F7,F82` -> `All checks passed!`.
+  - Frontend: `npm test` -> `10 passed, 0 failed`; `npm run build` -> `✓ Compiled successfully`.
+- **Evidence:** `pending commit | pytest -> 75 passed, 16 warnings | ruff -> All checks passed! | npm test -> 10 passed, 0 failed`
+
+---
+
 ### Entry 24 — 2026-11-27 | P1 Part B2 (CP21) — Resume Version Management, Session Fixes & Browser Verification
 
 - **Backend CP21 (`app/db/models.py`, `alembic/versions/7e7a0f2e3301_part_b2_resume_versions.py`, `app/services/workspace_service.py`, `app/routes/workspaces.py`, `app/services/resume_parser.py`, `app/routes/resume.py`, `app/services/rate_limiter.py`):**
