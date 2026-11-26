@@ -11,6 +11,8 @@ venv/
 mlruns/
 mlflow.db
 mlflow.db*
+app.db
+*.db
 .pytest_cache/
 
 # Environment

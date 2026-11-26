@@ -6,11 +6,17 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.config.settings import get_cors_allowed_origins, validate_startup_settings
+from app.db.engine import create_db_engine
+from app.db.session import create_session_factory
+from app.routes.auth import auth_router
 from app.routes.predict import router
 from app.routes.resume import resume_router
+from app.routes.workspaces import workspaces_router
 from app.services.feature_mapper import FeatureMapper
 from app.services.model_registry import ModelRegistry
 from app.services.predictor import PredictorService
+from app.services.rate_limiter import InMemoryRateLimiter
 from app.services.resume_parser import ResumeParser
 
 # Resolve models directory relative to this file so the app works regardless
@@ -21,20 +27,25 @@ _MODELS_DIR = str(_HERE.parent / "models")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: load models and register MLflow baseline
+    validate_startup_settings()
+    engine = create_db_engine()
+    app.state.db_engine = engine
+    app.state.db_session_factory = create_session_factory(engine)
+    app.state.auth_rate_limiter = InMemoryRateLimiter()
     app.state.feature_mapper = FeatureMapper(models_dir=_MODELS_DIR)
     app.state.predictor = PredictorService(models_dir=_MODELS_DIR)
     app.state.resume_parser = ResumeParser()
+    app.state.model_version = "frf_v1"
     ModelRegistry(models_dir=_MODELS_DIR).register_baseline_if_needed()
     yield
-    # Shutdown: nothing to clean up in Phase 1
+    engine.dispose()
 
 
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=get_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,3 +67,5 @@ async def request_validation_exception_handler(request: Request, exc: RequestVal
 
 app.include_router(router)
 app.include_router(resume_router)
+app.include_router(auth_router)
+app.include_router(workspaces_router)

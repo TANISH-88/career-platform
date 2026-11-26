@@ -10,6 +10,16 @@
 
 ---
 
+### Entry 19 — 2026-11-26 | P1 Part A — Accounts & Workspaces Backend
+
+- **Design:** Added `docs/p1/design.md` with Mermaid ER diagram (`users`, `workspaces`, `skill_profiles`, `predictions`), Argon2id + PyJWT auth flow, cross-origin `HttpOnly` refresh cookie + memory-only access token decision, and follow-up note for `/parse-resume` rate limiting.
+- **Database & Migrations:** Added SQLAlchemy 2.x models (`app/db/models.py`), engine/session helpers (`app/db/engine.py`, `app/db/session.py`), and Alembic migration `f38e39a6071a_initial_p1_tables.py` (`alembic upgrade head` verified). Default `DATABASE_URL=sqlite:///./app.db` (separate from `mlflow.db`); `.gitignore` updated with `app.db` and `*.db`.
+- **Auth & Workspaces:** Added `app/config/settings.py` (production startup guard requiring `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`), `app/services/rate_limiter.py` (in-memory per-IP limiter on `/auth/login` and `/auth/register`), `app/services/auth_service.py`, `app/services/workspace_service.py`, `app/routes/auth.py`, `app/routes/workspaces.py`, and `.env.example`. `/predict` and `/parse-resume` remain unchanged and unauthenticated.
+- **Tests:** Added `tests/test_auth.py` (7 tests) and `tests/test_workspaces.py` (4 tests).
+- **Evidence:** `pending commit | backend\fastapi\venv\Scripts\python.exe -m pytest tests/ -v -rs -> ====================== 60 passed, 16 warnings in 21.02s ======================= | CI: pending`
+
+---
+
 ### Entry 18 — 2026-11-25 | M3 Final Task — CP15 Persistent MLflow Registration
 
 - **Scope & sync:** Synced clean local `m3/part-a-corrected` from `818b198` to `a35e5eb` (`git pull --ff-only origin m3/part-a-corrected`).
