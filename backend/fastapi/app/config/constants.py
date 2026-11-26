@@ -18,23 +18,24 @@ PERSONALITY_FEATURES: list[str] = [
     'Self-transcendence',
 ]
 
+# Class order must match sklearn LabelEncoder on the training target.
 ROLE_MAPPING: dict[int, str] = {
-    0: 'Database Administrator',
-    1: 'Hardware Engineer',
+    0: 'AI ML Specialist',
+    1: 'API Specialist',
     2: 'Application Support Engineer',
-    3: 'Cyber Security Specialist',
-    4: 'Networking Engineer',
-    5: 'Software Developer',
-    6: 'API Specialist',
-    7: 'Project Manager',
-    8: 'Information Security Specialist',
-    9: 'Technical Writer',
-    10: 'AI ML Specialist',
-    11: 'Software Tester',
-    12: 'Business Analyst',
-    13: 'Customer Service Executive',
-    14: 'Helpdesk Engineer',
-    15: 'Graphics Designer',
+    3: 'Business Analyst',
+    4: 'Customer Service Executive',
+    5: 'Cyber Security Specialist',
+    6: 'Database Administrator',
+    7: 'Graphics Designer',
+    8: 'Hardware Engineer',
+    9: 'Helpdesk Engineer',
+    10: 'Information Security Specialist',
+    11: 'Networking Engineer',
+    12: 'Project Manager',
+    13: 'Software Developer',
+    14: 'Software Tester',
+    15: 'Technical Writer',
 }
 
 # --- Phase 2 additions ---

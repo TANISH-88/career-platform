@@ -43,11 +43,29 @@ jobs:
 
       - name: Run extra-row exclusion tests
         run: |
-          pytest ml-training/tests/test_extra_row_exclusion.py -v
+          pytest ml-training/tests/ -v
 
       - name: Run parity gate (must not skip)
         run: |
           python ml-training/check_parity.py
+
+      - name: M3 champion and candidate verification (isolated registry)
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///m3-ci.db
+        run: |
+          python ml-training/train.py bootstrap --register --output "$RUNNER_TEMP/m3"
+          python ml-training/train.py candidate --output "$RUNNER_TEMP/m3"
+          python -c 'import json,os,pathlib; p=pathlib.Path(os.environ["RUNNER_TEMP"])/"m3"; c=json.loads((p/"champion/report.json").read_text()); g=json.loads((p/"candidate/report.json").read_text()); assert c["champion_registry"]["version"]=="1"; assert c["legacy_registry"]["version"]=="1"; assert g["gate"]["parity_passed"]; assert len(g["gate"]["matched_seeds"])==11; assert g["candidate_recipe"] != c["recipe"] or g["addendum"]["added_rows"] > 0 or (g["gate"]["observed_gain"]==0 and g["gate"]["promotion_eligible"] is False); print("M3 registered champion and pinned-reference candidate verified", c["holdout"]["accuracy"], c["holdout"]["macro_f1"])'
+
+      - name: Upload M3 verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-verification-reports
+          path: |
+            ${{ runner.temp }}/m3/champion/report.json
+            ${{ runner.temp }}/m3/candidate/report.json
+          retention-days: 14
 
   frontend:
     name: Frontend Build

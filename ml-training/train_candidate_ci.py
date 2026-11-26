@@ -1,0 +1,115 @@
+"""Candidate-only CI; evaluate against a checked-in immutable champion reference."""
+import argparse
+import json
+import os
+from pathlib import Path
+
+import numpy as np
+import yaml
+from sklearn.metrics import accuracy_score, f1_score
+
+from data_split import load_frozen_split
+from train import (REPO_ROOT, ALL_FEATURES, CHAMPION_PARAMS, _load_params,
+                   fit_development, evaluate, frozen_identity, save_artifacts,
+                   digest, write_json)
+from check_parity import check_parity
+from robust_gate import robust_gate, SEEDS
+from development_data import load_development_addendum
+
+REFERENCE = REPO_ROOT / "ml-training/champion-reference.json"
+REFERENCE_SHA256 = "0f641757354343976ce6eb448b81054850674c81931ad6d28181cbeaa77be548"
+REFERENCE_ACCURACY = 0.1972972972972973
+REFERENCE_MACRO_F1 = 0.16639113268278288
+
+
+def read_reference(path=REFERENCE):
+    if digest(path) != REFERENCE_SHA256:
+        raise ValueError("Frozen champion reference SHA256 mismatch")
+    ref = json.loads(path.read_text())
+    if ref["holdout_accuracy"] != REFERENCE_ACCURACY or ref["holdout_macro_f1"] != REFERENCE_MACRO_F1:
+        raise ValueError("Frozen champion benchmark mismatch")
+    return ref
+
+
+def run(output):
+    dev, hold = load_frozen_split()
+    ref = read_reference()
+    if (ref["identity"] != frozen_identity()
+            or ref["recipe"] != CHAMPION_PARAMS
+            or ref["row_ids"] != hold.row_id.tolist()
+            or ref["source_commit"] != "55572273068bdad19d719149df877d7b00fd01d1"):
+        raise ValueError("Champion reference identity mismatch; review required")
+    params = _load_params(REPO_ROOT)["RF_PARAMS"]
+    if params["random_state"] != CHAMPION_PARAMS["random_state"]:
+        raise ValueError("Candidate seed is fixed; seed-only tuning is not allowed")
+    candidate_dev, addendum = load_development_addendum(dev, hold)
+    model, encoder = fit_development(candidate_dev, params)
+    if ref["class_order"] != encoder.classes_.tolist():
+        raise ValueError("Champion label order mismatch")
+    y = encoder.transform(hold.Role)
+    old = np.asarray(ref["predictions"])
+    if old.shape != y.shape or not np.isin(old, np.arange(len(encoder.classes_))).all():
+        raise ValueError("Invalid frozen predictions")
+    if (not np.isclose(accuracy_score(y, old), ref["holdout_accuracy"], atol=1e-12, rtol=0)
+            or not np.isclose(f1_score(y, old, labels=np.arange(len(encoder.classes_)),
+                                       average="macro", zero_division=0),
+                              ref["holdout_macro_f1"], atol=1e-12, rtol=0)):
+        raise ValueError("Frozen champion score mismatch")
+    if output.exists():
+        raise FileExistsError("Use a fresh candidate output directory")
+    save_artifacts(model, output)
+    parity = check_parity(output)
+    new = model.predict(hold[ALL_FEATURES])
+    old_by_seed, new_by_seed = [], []
+    for seed in SEEDS:
+        baseline, _ = fit_development(dev, {**CHAMPION_PARAMS, "random_state": seed})
+        baseline_pred = baseline.predict(hold[ALL_FEATURES])
+        if seed == 42 and not np.array_equal(baseline_pred, old):
+            raise ValueError("Seed-42 baseline no longer reproduces frozen champion")
+        old_by_seed.append(baseline_pred)
+        if seed == 42:
+            new_by_seed.append(new)
+        elif params == CHAMPION_PARAMS and addendum["added_rows"] == 0:
+            new_by_seed.append(baseline_pred.copy())
+        else:
+            paired, _ = fit_development(candidate_dev, {**params, "random_state": seed})
+            new_by_seed.append(paired.predict(hold[ALL_FEATURES]))
+    gate = robust_gate(y, old, new, hold.persona_id, old_by_seed, new_by_seed, parity,
+                       min_gain=max(0.02, yaml.safe_load((REPO_ROOT / "ml-training/params.yaml").read_text())["min_gain"]))
+    report = {"source_commit": os.environ.get("GITHUB_SHA"), "identity": frozen_identity(),
+              "reference_sha256": digest(REFERENCE), "champion_source_commit": ref["source_commit"],
+              "candidate_recipe": params, "candidate_pipeline_sha256": digest(output / "pipeline.pkl"),
+              "champion_holdout_macro_f1": ref["holdout_macro_f1"],
+              "candidate_holdout": evaluate(model, encoder, hold),
+              "candidate_dev": evaluate(model, encoder, candidate_dev), "addendum": addendum, "gate": gate,
+              "deployed": False, "registered": False}
+    write_json(output / "report.json", report)
+    print(json.dumps(gate, indent=2))
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+    try:
+        report = run(args.output)
+    except Exception as exc:
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a") as f:
+                f.write("## Candidate training failed\n\n" + type(exc).__name__ + ": " + str(exc) + "\n")
+        raise
+    summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        gate = report["gate"]
+        with open(summary, "a") as f:
+            f.write("## M3 candidate report\n\n")
+            for key in ("champion_accuracy", "candidate_accuracy", "observed_gain",
+                        "ci_90_lower", "ci_90_upper", "parity_passed", "promotion_eligible"):
+                f.write(f"- {key}: {gate[key]}\n")
+            f.write("\nNo model registered, promoted or deployed.\n")
+
+
+if __name__ == "__main__":
+    main()

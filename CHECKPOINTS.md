@@ -1,11 +1,11 @@
 # CHECKPOINTS — Living Resume Career Platform
 
-> Progress: 12/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
+> Progress: 16/30 genuinely verified | Status key: ✅ DONE | ⏳ PENDING VERIFICATION | ❌ NOT DONE | 🔲 OPEN (requires owner action)
 >
 > Progress count: Only checkpoints with ALL required evidence satisfied are counted.
-> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3–M5, P1–P4, S1–S5: 0 ✅
+> Foundation (CP1–CP6): 6 ✅ | Close M2 (CP7–CP12): 6 ✅ (ALL M2 CHECKPOINTS VERIFIED) | M3 (CP13–CP16): 4 ✅; CP17/18 pending final reviewer approval | remaining: 0 ✅
 >
-> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 has NOT been started.
+> **Note on M2 closure:** All 6 M2 checkpoints (CP7–CP12) are genuinely verified. M2 has reviewer approval. M3 Part A technically verified on the review branch.
 
 ---
 
@@ -289,14 +289,16 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 ## M3 — Honest evaluation and training
 
-> M3 has NOT been started. All checkpoints below are ❌ NOT DONE.
+> Claude conditionally approved M3 at 818b198; CP15/17/18 reopened pending correction verification.
 > Do not start M3 until M2 is fully approved by the reviewer.
 
 ### CP13 — Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns
 
 **Goal:** Clean dataset: extra rows and exact duplicates removed, persona defined as the 10 personality columns.
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE (technical verification on review branch) — CI #51, cleaned-source and label-order tests passed. 3,116 rows, 218 personas, 16 roles. See docs/m3/part-a-verification.md.
+
+**Evidence:** 0846c90 | pytest ml-training/tests/test_frozen_data.py -v → cleaned-source and label-order PASSED | CI #51 https://github.com/TANISH-88/career-platform/actions/runs/45473541343
 
 ---
 
@@ -304,15 +306,19 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Frozen holdout of unseen personas saved in git.
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE (technical verification on review branch) — CI #51, frozen split and tampered-data tests passed. 44 holdout personas, 174 development personas. See docs/m3/part-a-verification.md.
+
+**Evidence:** 0846c90 | pytest ml-training/tests/test_frozen_data.py -v → frozen split and tampered CSV PASSED | CI #51 https://github.com/TANISH-88/career-platform/actions/runs/45473541343
 
 ---
 
-### CP15 — train.py split into importable functions; original model registered as v1 champion
+### CP15 — train.py split into importable functions; notebook RF recipe retrained on development personas and registered as v1 champion; historical model separately registered
 
-**Goal:** train.py split into importable functions; original model registered as v1 champion.
+**Goal:** train.py split into importable functions; notebook recipe retrained on development personas as v1 champion; historical model separately registered.
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE (persistent local MLflow verification completed; final reviewer sign-off pending).
+
+**Evidence:** a35e5eb | MLFLOW_TRACKING_URI=sqlite:///C:/Users/Tanish/p4/mlflow.db backend\fastapi\venv\Scripts\python.exe ml-training/train.py bootstrap --register --output ml-training/m3-output → career-rf-m3-champion v1 (run 360767520c804bcbb70f67d6c73d5dc2) and career-rf-legacy v1 (run 688561cc262042f48a07f29a233183f5) created; fresh-process reload CHAMPION_RELOADED_HOLDOUT: accuracy=0.1972972972972973 macro_f1=0.16639113268278288 ref_match=True local_match=True, LEGACY_RELOADED_PARITY: exact_match=True | Local persistent SQLite + CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127
 
 ---
 
@@ -320,7 +326,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Champion score measured on the frozen holdout (not hardcoded).
 
-**Status:** ❌ NOT DONE
+**Status:** ✅ DONE (technical verification in isolated CI #66; reviewer sign-off pending). See docs/m3/part-b-verification.md.
+
+**Evidence:** 5557227 | M3 champion and identical candidate verified 0.1972972972972973 0.16639113268278288 | CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127; #84 https://github.com/TANISH-88/career-platform/actions/runs/45488008522
 
 ---
 
@@ -328,7 +336,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Promotion gate: paired comparison on the same folds beats seed noise; parity check included.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — independent review found incomplete scope; correction verification required.
+
+**Evidence:** 5557227 | 9 passed, 3 skipped; identical candidate gain 0, promotion_eligible false | CI #66 https://github.com/TANISH-88/career-platform/actions/runs/45485958127; new matched-seed and macro-F1 checks pending CI.
 
 ---
 
@@ -336,7 +346,9 @@ Evidence: 847c9db and d07668e | git show origin/main:ml-training/MODEL_CARD.md -
 
 **Goal:** Training workflow runs on GitHub: new data produces a candidate and a report.
 
-**Status:** ❌ NOT DONE
+**Status:** ⏳ PENDING VERIFICATION — independent review found incomplete scope; correction verification required.
+
+**Evidence:** 1fa93b3 | candidate run #2 success https://github.com/TANISH-88/career-platform/actions/runs/45487376480; 1575944 | ValueError: Cleaned dataset SHA256 does not match frozen holdout | https://github.com/TANISH-88/career-platform/actions/runs/45487439466; addendum path and fresh DVC lock pending CI.
 
 ---
 

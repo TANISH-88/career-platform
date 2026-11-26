@@ -1,19 +1,29 @@
+# Reproduce the candidate-only stage against the pinned reference.
 stages:
   train:
     cmd: python ml-training/train.py
     deps:
       - ml-training/train.py
-      - data/CareerMapping1.csv
+      - ml-training/train_candidate_ci.py
+      - ml-training/data_split.py
+      - ml-training/development_data.py
+      - ml-training/check_parity.py
+      - ml-training/promotion_gate.py
+      - ml-training/robust_gate.py
+      - ml-training/champion-reference.json
+      - backend/fastapi/app/config/constants.py
+      - backend/fastapi/app/services/feature_mapper.py
+      - backend/fastapi/app/services/predictor.py
+      - backend/fastapi/tests/fixtures/sample_careers.csv
+      - data/cleaned/careers_clean.csv
+      - data/cleaned/holdout_v1.json
+      - data/development
     params:
       - ml-training/params.yaml:
           - random_seed
-          - test_size
           - rf_params
+          - min_gain
+          - holdout_persona_fraction
+          - holdout_seed
     outs:
-      - ml-training/artifacts/frf.pkl
-      - ml-training/artifacts/scaler.pkl
-      - ml-training/artifacts/pca.pkl
-      - ml-training/artifacts/pipeline.pkl
-    metrics:
-      - ml-training/metrics.json:
-          cache: false
+      - ml-training/m3-output/candidate

@@ -1,0 +1,40 @@
+name: M3 candidate training
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'data/cleaned/**'
+      - 'ml-training/**'
+      - 'data/development/**'
+      - 'backend/fastapi/app/config/constants.py'
+      - 'backend/fastapi/app/services/**'
+      - '.github/workflows/m3-candidate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/fastapi/requirements.txt
+      - name: Install pinned dependencies
+        run: pip install -r backend/fastapi/requirements.txt
+      - name: Validate frozen data and train candidate only
+        run: python ml-training/train_candidate_ci.py --output "$RUNNER_TEMP/m3-candidate"
+      - name: Upload candidate and report
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3-candidate
+          path: ${{ runner.temp }}/m3-candidate/
+          retention-days: 14
+          if-no-files-found: error

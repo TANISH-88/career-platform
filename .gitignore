@@ -28,4 +28,7 @@ Thumbs.db
 
 # Model artifacts are versioned by DVC — do NOT commit raw .pkl to git
 # (uncomment if you add a DVC remote; for now they are committed for dev convenience)
-# backend/fastapi/models/*.pkl
+# backend/fastapi/models/*.pkl
+# M3 generated artifacts and isolated CI registry
+ml-training/m3-output/
+m3-ci.db*

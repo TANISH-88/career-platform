@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "seed": 42,
+  "holdout_persona_fraction": 0.2,
+  "cleaned_sha256": "e774de4698a08ba9357a224190a54292d92d0cba35c66a1e25d366f66438499f",
+  "total_personas": 218,
+  "holdout_personas": 44,
+  "development_personas": 174,
+  "total_rows": 3116,
+  "holdout_rows": 740,
+  "development_rows": 2376,
+  "role_persona_counts": {
+    "AI ML Specialist": {
+      "total": 13,
+      "holdout": 3,
+      "development": 10
+    },
+    "API Specialist": {
+      "total": 2,
+      "holdout": 1,
+      "development": 1
+    },
+    "Application Support Engineer": {
+      "total": 31,
+      "holdout": 4,
+      "development": 27
+    },
+    "Business Analyst": {
+      "total": 13,
+      "holdout": 2,
+      "development": 11
+    },
+    "Customer Service Executive": {
+      "total": 4,
+      "holdout": 1,
+      "development": 3
+    },
+    "Cyber Security Specialist": {
+      "total": 11,
+      "holdout": 2,
+      "development": 9
+    },
+    "Database Administrator": {
+      "total": 7,
+      "holdout": 2,
+      "development": 5
+    },
+    "Graphics Designer": {
+      "total": 14,
+      "holdout": 4,
+      "development": 10
+    },
+    "Hardware Engineer": {
+      "total": 5,
+      "holdout": 2,
+      "development": 3
+    },
+    "Helpdesk Engineer": {
+      "total": 8,
+      "holdout": 2,
+      "development": 6
+    },
+    "Information Security Specialist": {
+      "total": 6,
+      "holdout": 2,
+      "development": 4
+    },
+    "Networking Engineer": {
+      "total": 19,
+      "holdout": 2,
+      "development": 17
+    },
+    "Project Manager": {
+      "total": 19,
+      "holdout": 2,
+      "development": 17
+    },
+    "Software Developer": {
+      "total": 55,
+      "holdout": 11,
+      "development": 44
+    },
+    "Software Tester": {
+      "total": 7,
+      "holdout": 3,
+      "development": 4
+    },
+    "Technical Writer": {
+      "total": 5,
+      "holdout": 1,
+      "development": 4
+    }
+  },
+  "holdout_persona_ids": [
+    "0080fe8e26f59a18b175f13a3a3a05301ce0af4c",
+    "017cbe487a439e044d2a90b2e1f0413210607b98",
+    "0abc73e9f8506d8a8da82a909d763553472bd880",
+    "0cb46ba145d66ea2ceb990b119b56686199afd7f",
+    "1259b9fc83dac283ebb6548e02a86d101a75d4ca",
+    "170cd5c0dcefbb65170fd81d4ab4bb9f92b2aa8a",
+    "24fecaa202b0f33bcfeaf4401c7f90ed7a8d7243",
+    "35a2dbecce361766cbe50ad79fd96f35643d2934",
+    "3777dcaa2a5cfc15a6e7608fc59998f22d4f9101",
+    "3da799830ed38e24985c28f1528f1106bf4c0b0f",
+    "40b03cc7b5c345f4c79160ec888f4d53535fa618",
+    "40ea52cb86c581525cc20593e019f44edad8780f",
+    "44de0b75f9a4b7b8044b08e787638556d5d52196",
+    "4bbd3c4a24eeb4318eb1c4aaf3abec3a0fc921ad",
+    "4c817743f01c9fc52a573e012b5fc52d9e20592d",
+    "5865d3d55b07b2aa59601ac1222e0829802083c1",
+    "601e74164ba3ea0b6cb48fa0a6e41138dec082fb",
+    "71fd578183a9c46053bbebea82b9f8babc2c509b",
+    "741962969ddabb4a420d7eafe993fb20b9700899",
+    "7482f37fa0a883436b934bf33b9f69cc3be80344",
+    "7cc227ac496ed6dfa9dc13f9a370bc2ea8c5623c",
+    "7fff09a8669322ec2dce16e1eb5610fdd66d8c4f",
+    "9a4cb76120a74d2be67b0e097b4e8e05249a405a",
+    "9cd822abe247396114989ebb86d4e4a2afacc57f",
+    "9d48727aaf8325e7c21211cb7c3af793e75eb6ca",
+    "9de95cd1fb0fbee4bf4b5eea3543a8692ab8ec22",
+    "9fdbdcca0103cfcaeece9b75b9a05608080daa98",
+    "a3a144fb62a709a1e73ab4ae3cfd0557795f5899",
+    "a5345c1c3053853173aafeef1f0df3c6338794af",
+    "a7cadaa817b940cef73b1b392a1dfbb289c960f8",
+    "b0d8eb4b779d6d6a1db79bebba51a5b995f9ff36",
+    "c3a69e45928b68424061677e0cbb3862b23ffc24",
+    "c642d03bc6d36458ebf0918dc74b44811fa1556d",
+    "cccb536b7c1a9171d42452ef3d0270dae94befd9",
+    "d5fb356685de862f6a34ab341bc28834e084595c",
+    "d8825f829e7dbf5cf484d2a49f4eb3710d91415f",
+    "dde3cd753c5ec32bd36462d64bf071a8b09eaf5d",
+    "e37a23c25a1002e0a6a8e10b9a100e8e6ddad3e6",
+    "f23beace40bc13c1194e2304fd63a624369944b8",
+    "f2fc923d6952fd799fdaad3a318eff5062baf083",
+    "f4be77461cc7f72c299c492790abc513eb8c2a41",
+    "f4f9d5e5a4799331d7b74e06935e2aadcaeac6b3",
+    "f85c575cd6741953696d08b384a50efa5f7f9934",
+    "f98343dc6243c771da72e080cc6faaf40382a542"
+  ]
+}

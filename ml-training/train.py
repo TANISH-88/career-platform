@@ -1,27 +1,16 @@
+"""M3 training: frozen-persona evaluation, explicit registry bootstrap, no deployment.
+
+Legacy load_data and preprocessing helpers are retained for historical audits.
+Run from any working directory:
+  python ml-training/train.py bootstrap --output ml-training/m3-output
+  python ml-training/train.py candidate --output ml-training/m3-output
 """
-train.py - Production training script for Career Role Prediction RF model.
-
-Usage:
-    python ml-training/train.py
-
-Outputs:
-    - models/frf.pkl          : trained RandomForestClassifier
-    - models/scaler.pkl       : fitted StandardScaler
-    - models/pca.pkl          : fitted PCA (n_components=2)
-    - mlruns/                 : MLflow experiment artifacts & metrics
-
-All randomness is controlled by RANDOM_SEED = 42.
-The train/test split is fixed at 80/20 stratified.
-"""
-
 import json
 import os
 import pathlib
 import hashlib
 
 import joblib
-import mlflow
-import mlflow.sklearn
 import numpy as np
 import pandas as pd
 import yaml
@@ -43,8 +32,8 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 # ---------------------------------------------------------------------------
 RANDOM_SEED: int = 42
 TEST_SIZE: float = 0.20
-DATA_PATH: str = "data/CareerMapping1.csv"
-ARTIFACTS_DIR: str = "ml-training/artifacts"
+DATA_PATH: str = "data/CareerMapping1.csv"  # legacy audit source
+ARTIFACTS_DIR: str = "ml-training/m3-output"
 METRICS_PATH: str = "ml-training/metrics.json"
 EXPERIMENT_NAME: str = "career-prediction"
 
@@ -194,179 +183,157 @@ def apply_preprocessor(
     return np.concatenate([personality, pca_components], axis=1)
 
 
-# ---------------------------------------------------------------------------
-# Main training routine
-# ---------------------------------------------------------------------------
 
-def train() -> None:
-    import sklearn
-    sklearn_version = sklearn.__version__
+import argparse
+from data_split import load_frozen_split, CLEAN, MANIFEST
+from promotion_gate import promotion_gate
+from check_parity import check_parity
 
-    # Resolve paths relative to repo root (script may be called from any cwd)
-    repo_root = pathlib.Path(__file__).resolve().parent.parent
-    data_path = repo_root / DATA_PATH
-    artifacts_dir = repo_root / ARTIFACTS_DIR
-    metrics_path = repo_root / METRICS_PATH
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
+CHAMPION_PARAMS = dict(bootstrap=True, max_depth=10, max_features="sqrt",
+                       min_samples_leaf=7, min_samples_split=7,
+                       n_estimators=200, random_state=42)
+CHAMPION_NAME = "career-rf-m3-champion"
+LEGACY_NAME = "career-rf-legacy"
 
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    # -- Load params from params.yaml (DVC-tracked) ------------------------
-    p = _load_params(repo_root)
-    random_seed: int = p["RANDOM_SEED"]
-    test_size: float = p["TEST_SIZE"]
-    rf_params: dict = p["RF_PARAMS"]
+def build_pipeline(rf_params):
+    tech = Pipeline([("scaler", StandardScaler()),
+                     ("pca", PCA(n_components=2, random_state=42))])
+    pre = ColumnTransformer([("personality", "passthrough", PERSONALITY_FEATURES),
+                             ("tech", tech, TECHNICAL_FEATURES)])
+    return Pipeline([("preprocessor", pre),
+                     ("classifier", RandomForestClassifier(**rf_params))])
 
-    # -- Shared MLflow tracking URI (env var or sqlite:///mlflow.db) -------
-    default_tracking_uri = f"sqlite:///{repo_root.as_posix()}/mlflow.db"
-    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", default_tracking_uri)
-    mlflow.set_tracking_uri(tracking_uri)
+
+def fit_development(dev, rf_params):
+    validate_data(dev)
+    encoder = LabelEncoder().fit(dev.Role)
+    from app.config.constants import ROLE_MAPPING
+    if list(encoder.classes_) != list(ROLE_MAPPING.values()):
+        raise ValueError("Development label order mismatch")
+    model = build_pipeline(rf_params)
+    model.fit(dev[ALL_FEATURES], encoder.transform(dev.Role))
+    return model, encoder
+
+
+def evaluate(model, encoder, frame):
+    y = encoder.transform(frame.Role)
+    pred = model.predict(frame[ALL_FEATURES])
+    return {"accuracy": float(accuracy_score(y, pred)),
+            "macro_f1": float(f1_score(y, pred, labels=np.arange(len(encoder.classes_)),
+                                       average="macro", zero_division=0)),
+            "rows": len(frame), "personas": int(frame.persona_id.nunique()),
+            "per_role": classification_report(y, pred, labels=np.arange(len(encoder.classes_)),
+                                             target_names=encoder.classes_, output_dict=True,
+                                             zero_division=0)}
+
+
+def save_artifacts(model, destination):
+    destination.mkdir(parents=True, exist_ok=True)
+    tech = model.named_steps["preprocessor"].named_transformers_["tech"]
+    for name, obj in (("pipeline", model), ("frf", model.named_steps["classifier"]),
+                      ("scaler", tech.named_steps["scaler"]), ("pca", tech.named_steps["pca"])):
+        joblib.dump(obj, destination / (name + ".pkl"))
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write_json(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n")
+
+
+def frozen_identity():
+    return {"cleaned_sha256": digest(CLEAN), "manifest_sha256": digest(MANIFEST)}
+
+
+def register_once(model, name, tags, metrics=None, tracking_uri=None):
+    import mlflow
+    import mlflow.sklearn
+    from mlflow.tracking import MlflowClient
+
+    mlflow.set_tracking_uri(tracking_uri or os.environ.get(
+        "MLFLOW_TRACKING_URI", f"sqlite:///{REPO_ROOT.as_posix()}/mlflow.db"))
     mlflow.set_experiment(EXPERIMENT_NAME)
+    client = MlflowClient()
+    versions = client.search_model_versions(f"name = '{name}'")
+    if versions:
+        # Never silently adopt a model with a different training-data identity.
+        matching = [v for v in versions if all(v.tags.get(k) == str(val)
+                                               for k, val in tags.items())]
+        if len(matching) != 1 or len(versions) != 1:
+            raise RuntimeError(f"Registry {name} already contains unexpected versions")
+        return {"name": name, "version": str(matching[0].version),
+                "run_id": matching[0].run_id}
+    with mlflow.start_run(run_name=name) as run:
+        mlflow.set_tags(tags)
+        if metrics:
+            mlflow.log_metrics({k: v for k, v in metrics.items()
+                                if k in ("accuracy", "macro_f1")})
+        mlflow.sklearn.log_model(model, artifact_path="pipeline")
+        version = mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", name,
+                                        await_registration_for=120)
+        for k, v in tags.items():
+            client.set_model_version_tag(name, version.version, k, str(v))
+        return {"name": name, "version": str(version.version), "run_id": run.info.run_id}
 
-    with mlflow.start_run(run_name="rf_train_v1"):
 
-        # -- Log fixed hyper-params & run config ---------------------------
-        mlflow.log_params(
-            {
-                "random_seed": random_seed,
-                "test_size": test_size,
-                "data_path": str(data_path),
-                "sklearn_version": sklearn_version,
-                **rf_params,
-            }
-        )
+def bootstrap(output, register=False):
+    dev, hold = load_frozen_split()
+    directory = output / "champion"
+    if directory.exists():
+        raise FileExistsError("Champion already exists; use a fresh output directory")
+    champion, encoder = fit_development(dev, CHAMPION_PARAMS)
+    save_artifacts(champion, directory)
+    if not check_parity(directory):
+        raise RuntimeError("Champion serving parity failed")
+    report = {"identity": frozen_identity(), "recipe": CHAMPION_PARAMS,
+              "class_order": encoder.classes_.tolist(), "dev": evaluate(champion, encoder, dev),
+              "holdout": evaluate(champion, encoder, hold),
+              "pipeline_sha256": digest(directory / "pipeline.pkl"), "parity_passed": True}
+    if register:
+        report["champion_registry"] = register_once(
+            champion, CHAMPION_NAME, {**report["identity"],
+                "recipe": json.dumps(CHAMPION_PARAMS, sort_keys=True),
+                "training_scope": "development personas only",
+                "pipeline_sha256": report["pipeline_sha256"]}, report["holdout"])
+        legacy_path = REPO_ROOT / "ml-training/artifacts/pipeline.pkl"
+        report["legacy_registry"] = register_once(
+            joblib.load(legacy_path), LEGACY_NAME,
+            {"source_pipeline_sha256": digest(legacy_path),
+             "training_scope": "historical random row split from full original source including holdout personas",
+             "comparison": "not comparable; no unseen-persona score"})
+    write_json(directory / "report.json", report)
+    print(json.dumps({"champion_holdout_accuracy": report["holdout"]["accuracy"],
+                      "champion_holdout_macro_f1": report["holdout"]["macro_f1"],
+                      "registry": report.get("champion_registry")}, indent=2))
+    return report
 
-        # -- Data loading & validation -------------------------------------
-        print(f"[1/6] Loading data from {data_path} ...")
-        # exclude_extra_rows=True (default): 1,000 unknown-origin rows are excluded.
-        # origin unknown, excluded — see MODEL_CARD.md § Data Quality.
-        df = load_data(str(data_path), exclude_extra_rows=True)
-        validate_data(df)
-        data_md5 = compute_md5(str(data_path))
-        mlflow.set_tag("data_md5", data_md5)
-        mlflow.set_tag("data_rows", str(len(df)))
-        mlflow.set_tag("extra_rows_excluded", "true")
-        print(f"       {len(df)} rows | md5={data_md5}")
 
-        # -- Fixed train/test split (stratified) ---------------------------
-        print("[2/6] Splitting data (80/20 stratified, seed=42) ...")
-        X, y = build_features(df)
-        X_train, X_test, y_train, y_test = train_test_split(
-            X,
-            y,
-            test_size=test_size,
-            random_state=random_seed,
-            stratify=y,
-        )
-        mlflow.log_params(
-            {
-                "n_train": len(X_train),
-                "n_test": len(X_test),
-                "n_classes": int(y.nunique()),
-            }
-        )
+def train_candidate(output):
+    """Use the pinned-reference and robust gate shared with CI."""
+    from train_candidate_ci import run
+    return run(output / "candidate")
 
-        # -- Build unified Pipeline (preprocessor + RF) --------------------
-        print("[3/6] Building unified Pipeline (StandardScaler + PCA + RandomForest) ...")
-        tech_pipeline = Pipeline(
-            [
-                ("scaler", StandardScaler()),
-                ("pca", PCA(n_components=2, random_state=random_seed)),
-            ]
-        )
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ("personality", "passthrough", PERSONALITY_FEATURES),
-                ("tech", tech_pipeline, TECHNICAL_FEATURES),
-            ]
-        )
-        pipeline = Pipeline(
-            [
-                ("preprocessor", preprocessor),
-                ("classifier", RandomForestClassifier(**rf_params)),
-            ]
-        )
 
-        # -- Train unified Pipeline ----------------------------------------
-        print("[4/6] Fitting unified Pipeline on training split ...")
-        pipeline.fit(X_train, y_train)
-
-        # -- Evaluate ------------------------------------------------------
-        print("[5/6] Evaluating ...")
-        train_acc = accuracy_score(y_train, pipeline.predict(X_train))
-        test_acc = accuracy_score(y_test, pipeline.predict(X_test))
-        test_f1 = f1_score(y_test, pipeline.predict(X_test), average="macro")
-
-        # 5-fold stratified cross-validation on full dataset using Pipeline
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_seed)
-        cv_scores = cross_val_score(pipeline, X, y, cv=skf, scoring="accuracy")
-        cv_mean = float(np.mean(cv_scores))
-        cv_std = float(np.std(cv_scores))
-
-        metrics = {
-            "train_accuracy": float(train_acc),
-            "test_accuracy": float(test_acc),
-            "test_f1_macro": float(test_f1),
-            "cv_accuracy_mean": cv_mean,
-            "cv_accuracy_std": cv_std,
-        }
-
-        mlflow.log_metrics(metrics)
-
-        # Write DVC metrics.json
-        with open(metrics_path, "w") as fh:
-            json.dump(metrics, fh, indent=2)
-
-        print(f"       Train accuracy  : {train_acc:.4f}")
-        print(f"       Test  accuracy  : {test_acc:.4f}")
-        print(f"       Test  F1-macro  : {test_f1:.4f}")
-        print(f"       CV accuracy     : {cv_mean:.4f} +/- {cv_std:.4f}")
-        print()
-        print(classification_report(y_test, pipeline.predict(X_test)))
-
-        # -- Persist candidate artifacts to ml-training/artifacts/ ---------
-        print(f"[6/6] Saving candidate artifacts to {artifacts_dir} ...")
-        tech_transformer = pipeline.named_steps["preprocessor"].named_transformers_["tech"]
-        scaler = tech_transformer.named_steps["scaler"]
-        pca = tech_transformer.named_steps["pca"]
-        model = pipeline.named_steps["classifier"]
-
-        frf_path = str(artifacts_dir / "frf.pkl")
-        scaler_path = str(artifacts_dir / "scaler.pkl")
-        pca_path = str(artifacts_dir / "pca.pkl")
-        pipeline_path = str(artifacts_dir / "pipeline.pkl")
-
-        joblib.dump(model, frf_path)
-        joblib.dump(scaler, scaler_path)
-        joblib.dump(pca, pca_path)
-        joblib.dump(pipeline, pipeline_path)
-
-        # Log candidate artifacts folder to MLflow
-        mlflow.log_artifacts(str(artifacts_dir), artifact_path="artifacts")
-
-        # Register unified Pipeline as career-rf so scaler+PCA+RF cannot desync
-        mlflow.sklearn.log_model(
-            pipeline,
-            artifact_path="career_pipeline",
-            registered_model_name="career-rf",
-        )
-
-        mlflow.set_tags(
-            {
-                "model_type": "Pipeline(StandardScaler+PCA+RandomForestClassifier)",
-                "training_script": "ml-training/train.py",
-                "sklearn_version": sklearn_version,
-            }
-        )
-
-        run_id = mlflow.active_run().info.run_id
-        print(f"\n[OK] Run logged to MLflow  run_id={run_id}")
-        print(f"[OK] Tracking URI          {tracking_uri}")
-        print(f"[OK] Candidate models      {artifacts_dir}")
-        print(f"[OK] Metrics written to    {metrics_path}")
-        print(f"[OK] sklearn version       {sklearn_version}  (pinned in requirements)")
+def train():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", nargs="?", default="candidate", choices=["bootstrap", "candidate"])
+    parser.add_argument("--output", type=pathlib.Path,
+                        default=REPO_ROOT / "ml-training/m3-output")
+    parser.add_argument("--register", action="store_true",
+                        help="Explicitly register bootstrap models in MLflow; never deploy")
+    args = parser.parse_args()
+    if args.register and args.mode != "bootstrap":
+        parser.error("--register is only valid for bootstrap")
+    if args.mode == "bootstrap":
+        bootstrap(args.output.resolve(), register=args.register)
+    else:
+        train_candidate(args.output.resolve())
 
 
 if __name__ == "__main__":
     train()
-
-
